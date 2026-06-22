@@ -77,22 +77,50 @@ access360/43250372/dyn/vib/notify (multipart fragments)
   `iot-hivemq:1883` / `192.168.68.150:1883`, TLS off, anonymous.
 - Target sensor: WS300 `22255728` (has verified live waveform).
 
-## Setup (outline — flow JSON lands in Phase 2)
+## What's in this folder (Phase 2 — delivered)
 
-1. Run Node-RED on `.150` on the `iot` Docker network.
-2. Install the palette nodes above.
-3. **`mqtt in`** → topic `access360/43250372/dyn/vib/notify`, QoS 1, broker
-   `iot-hivemq:1883`.
-4. **Reassembly function** — buffer fragments keyed by `MultiPart_ID`, concatenate
-   `Data` in order, attempt `JSON.parse`; emit only when parse succeeds.
-5. **Extract** `X`/`Y`/`Z`, `Fs`, `Samples`, `Serial`, `ID`.
-6. **FFT function** — Hann window → real FFT → magnitude; build a `{freqs[], mag[]}`
-   frame; map bin index → Hz with `df = Fs / Samples`.
-7. **Spectrum chart** — line chart, amplitude vs frequency, one series per axis.
-8. **Waterfall** — push each new spectrum as a row into a heatmap (frequency on X,
-   time scrolling on Y, amplitude as color).
-9. Add a sensor/axis selector and an optional `dyn/vib/trigger` button to force a
-   fresh reading on demand.
+| Path | What it is |
+|---|---|
+| `flow.json` | Importable Node-RED flow: `mqtt in` → reassemble+unwrap → FFT → spectrum chart + waterfall, plus an axis dropdown and an offline "Load fixture" path. |
+| `lib/fft.js` | Dependency-free Hann-window + radix-2 FFT + single-sided amplitude spectrum (canonical source; the flow's FFT node embeds a copy). |
+| `lib/reassemble.js` | Multipart reassembly + `Reading`-wrapper unwrap (canonical source). |
+| `test/run.js` | `node test/run.js` — runs the signal core against the real fixture and asserts a sane spectrum. **No dependencies.** |
+| `fixtures/ws300-dyn-vib-notify.json` | A **real** captured WS300 reading (sensor `22255728`, ~514 KB) for offline dev/test. |
+| `Dockerfile` + `docker-compose.yml` | Standalone Node-RED (with `node-red-dashboard`) deployable on `192.168.68.150`. |
+
+### Quick check (no Node-RED needed)
+
+```bash
+node test/run.js
+# X/Y/Z spectra: Nfft=8192, df≈1.586 Hz, peaks ~3.2–3.7 kHz on the real fixture
+```
+
+### Deploy + use
+
+```bash
+docker compose up -d --build
+# http://192.168.68.150:1880/     -> editor: Import flow.json (once) -> Deploy
+# http://192.168.68.150:1880/ui   -> dashboard: spectrum + scrolling waterfall
+```
+
+Without live readings, hit the **"Load fixture"** inject in the editor to push the
+real captured waveform through the whole pipeline. To force a fresh live reading,
+publish to `access360/43250372/dyn/vib/trigger` (`{"Serial":22255728}`) — note the
+4G cost below.
+
+### Findings baked in from the live broker (2026-06-22)
+
+- **`Reading` wrapper:** live `dyn/vib/notify` nests the fields under a top-level
+  `Reading` object (`{"Reading":{...}}`), not flat as the vendor schema shows. The
+  extract step handles both.
+- **Multipart not observed here:** the ~514 KB payload arrived as a *single* whole
+  message — HiveMQ on `.150` has a large enough `MaximumPacketSize`, so no
+  `MultiPart_ID` fragments appeared. Reassembly is still implemented for portability.
+- **6400 samples → zero-pad to 8192:** the waveform length is not a power of two, so
+  the FFT Hann-windows then zero-pads to 8192. Resolution is `df = Fs/8192 ≈ 1.586 Hz`
+  (Nyquist ≈ 6494 Hz at `Fs = 12989`).
+- **Axis dropdown** applies to the *next* reading (the FFT runs on arrival). WS200s
+  are single-axis, so only one of X/Y/Z is populated for those; WS300 has all three.
 
 ## Notes
 
@@ -103,8 +131,10 @@ access360/43250372/dyn/vib/notify (multipart fragments)
 - **Scope.** This method is *signal* visualization. The on-device health monitor
   (Method 5) deliberately does **not** draw FFTs.
 
-## Phase 2 (later)
+## Still to do
 
-Commit the exported `flow.json`, the FFT/reassembly function code, a
-`docker-compose.yml` for a standalone Node-RED, and a screenshot/GIF of the live
-waterfall.
+- Capture a **screenshot/GIF** of the live waterfall once deployed on `.150`.
+- Optional: an on-demand **`dyn/vib/trigger` button** wired into the dashboard
+  (kept out for now to avoid accidental 4G-costly triggers during the demo).
+- Optional: validate amplitude scaling against approach (B) (`dyn/fft/get`), whose
+  `Plot` is already in **frequency**.
