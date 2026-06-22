@@ -1,0 +1,35 @@
+# Secrets / environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Node / build artifacts
+node_modules/
+dist/
+build/
+.next/
+out/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# ESP-IDF / firmware build output
+build/
+sdkconfig
+sdkconfig.old
+managed_components/
+dependencies.lock
+
+# SquareLine Studio export caches
+*.sqlite
+.DS_Store
+
+# Editor / OS
+.vscode/
+.idea/
+Thumbs.db
