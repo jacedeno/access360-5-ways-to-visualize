@@ -27,54 +27,66 @@ HiveMQ (192.168.68.150:1883) ──MQTT──► Grafana MQTT data source ──
 
 ## Prerequisites
 
-- A Grafana instance (v10+). Deploy it as a **Docker container on
-  `192.168.68.150`** so it shares the network with `iot-hivemq` (see the compose
-  snippet below).
-- The **MQTT data source plugin** installed:
-  `grafana-cli plugins install grafana-mqtt-datasource` (or set
-  `GF_INSTALL_PLUGINS` as below).
-- Broker details — [`../../docs/backend-context.md`](../../docs/backend-context.md):
-  `192.168.68.150:1883` (or `iot-hivemq:1883` from inside the Docker network), TLS
-  off, anonymous.
+This **reuses the existing `iot-grafana`** on the `.150` IoT stack (Grafana
+**12.4.1**) — no new container. It needs:
 
-## Setup
+- The **`grafana-mqtt-datasource`** plugin (signed, in the catalog). Install once
+  (this restarts Grafana):
+  ```bash
+  ssh root@192.168.68.150 'docker exec iot-grafana grafana cli plugins install grafana-mqtt-datasource && docker restart iot-grafana'
+  ```
+- A Grafana **service-account token** (role Admin/Editor) for `deploy/deploy.sh`.
+- iot-grafana already shares the `iot_iot` network with `iot-hivemq`, so it reaches
+  the broker at `iot-hivemq:1883` (TLS off, anonymous).
 
-1. **Run Grafana on `.150`** (helper service, Docker):
+## What's in this folder (Phase 2 — delivered)
 
-   ```yaml
-   # docker-compose.yml (Phase 2 will commit a finished version)
-   services:
-     grafana:
-       image: grafana/grafana:latest
-       container_name: grafana-live
-       ports:
-         - "3000:3000"
-       environment:
-         GF_INSTALL_PLUGINS: grafana-mqtt-datasource
-       networks:
-         - iot            # same network as iot-hivemq
-   networks:
-     iot:
-       external: true
-   ```
+| Path | What it is |
+|---|---|
+| `provisioning/datasource.yml` | The MQTT data source (`uri: tcp://iot-hivemq:1883`), for file-provisioning or reference. |
+| `dashboards/fleet-health-live.json` | The dashboard (7 panels). The data source uid is templated as `${DS_MQTT_UID}`. |
+| `deploy/deploy.sh` | Idempotent deploy into the existing iot-grafana via API: upserts the data source, imports the dashboard. |
+| `deploy/gen_dashboard.py` | Generator that builds the dashboard JSON (documents how each panel is wired). |
+| `docs-img/grafana-live-selftest.png` | Screenshot: a panel streaming live RSSI over Grafana Live. |
 
-2. **Add the MQTT data source** (Connections → Data sources → MQTT):
-   - URI: `tcp://iot-hivemq:1883` (in-network) or `tcp://192.168.68.150:1883`.
-   - No TLS, no credentials.
-3. **Build panels.** Each panel subscribes to a topic; the MQTT data source emits
-   the JSON fields as a streaming frame. Suggested panels (mirroring
-   [`../../docs/fleet-health-metrics.md`](../../docs/fleet-health-metrics.md)):
+### Deploy
 
-   | Panel | Topic | Field(s) | Type |
-   |---|---|---|---|
-   | Battery % by sensor | `access360/43250372/dyn/batt/notify` | `Batt` | Stat / Bar gauge |
-   | RSSI | `access360/43250372/rssi/notify` | `Rssi` | Time series |
-   | Overall RMS | `access360/43250372/dyn/vib/notify/lite` | `Xrms`,`Yrms`,`Zrms` | Time series |
-   | Heartbeats | `access360/43250372/proc/checkin/notify` | `Serial` | State timeline |
-   | Errors | `access360/43250372/error/notify` | `Error` | Logs |
+```bash
+GRAFANA_TOKEN=<service-account-token> ./deploy/deploy.sh
+# open http://192.168.68.150:3000/d/access360-live
+```
 
-4. **Thresholds:** color battery `< 20 %` and RSSI `< -75 dBm` red, per the
-   fleet-health doc.
+### Panels (mirroring [`../../docs/fleet-health-metrics.md`](../../docs/fleet-health-metrics.md))
+
+| Panel | Topic | Field(s) | Type |
+|---|---|---|---|
+| BLE RSSI — live | `…/rssi/notify` | `Rssi` | Time series |
+| Sensor heartbeats — live | `…/proc/checkin/notify` | `Serial`,`Time` | Table |
+| Temperature — live | `…/dyn/temp/notify` | `Temp` | Time series |
+| Overall vibration RMS — live | `…/dyn/vib/notify/lite` | `Xrms`,`Yrms`,`Zrms` | Time series |
+| Battery % (latest) | `…/dyn/batt/notify` | `Batt` | Stat (red `<20%`) |
+| RSSI (latest) | `…/rssi/notify` | `Rssi` | Stat (red `<-80 dBm`) |
+
+### Findings from deploying live (2026-06-22)
+
+- **Verified end-to-end:** data source reports *MQTT Connected*; a panel renders
+  streaming RSSI over Grafana Live (see screenshot). Verification used **synthetic
+  messages on a throwaway gateway topic** (`access360/99999999/rssi/notify`) — the
+  production ingester only subscribes to `access360/43250372/#`, so the test never
+  reaches the real database.
+- **Hide non-metric fields:** the MQTT data source turns *every* JSON key into a
+  field, so a naive panel also plots `Serial` (e.g. `99999999`), which wrecks the
+  axis. Panels hide `Serial`/`ID` (time series) or pin the stat to one field
+  (`/^Rssi$/`).
+- **Live-only, no backfill:** Grafana Live shows only messages that arrive *after*
+  you open the panel; ACCESS360 sensors publish in **bursts** and can be quiet for
+  minutes, so panels look empty until traffic flows. For history, point Grafana at
+  **InfluxDB 3** instead (see Notes).
+- **Nested payloads:** `proc/reading/notify` nests under `Reading`, so its fields
+  aren't top-level — this dashboard uses the flat `dyn/vib/notify/lite` for overall
+  RMS instead.
+
+![Grafana Live — streaming RSSI](docs-img/grafana-live-selftest.png)
 
 ## Notes
 
@@ -88,7 +100,8 @@ HiveMQ (192.168.68.150:1883) ──MQTT──► Grafana MQTT data source ──
 - **Waveform:** skip `dyn/vib/notify` (multipart). Use the FFT/waterfall method
   (4) for spectra.
 
-## Phase 2 (later)
+## Still to do
 
-Commit the finished `docker-compose.yml`, a provisioned data source YAML, and an
-exported dashboard JSON (`fleet-health-live.json`).
+- Capture a full-dashboard screenshot during **live fleet activity** (the committed
+  shot is the single-panel self-test, since the fleet was quiet at deploy time).
+- Optional: an `error/notify` logs panel and a per-sensor "last seen" stat.

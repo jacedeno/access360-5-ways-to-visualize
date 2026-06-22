@@ -22,7 +22,7 @@ with off-the-shelf tools plus a little firmware.
 > |---|---|---|
 > | 1 | MQTTX | 📄 documented |
 > | 2 | IoT MQTT Panel | 📄 documented |
-> | 3 | Grafana Live | 📄 documented |
+> | 3 | Grafana Live | ✅ **delivered + live** |
 > | 4 | Node-RED FFT/waterfall ⭐ | ✅ **delivered + live** |
 > | 5 | SenseCAP Indicator D1L ⭐ | 📄 documented |
 
