@@ -33,3 +33,5 @@ dependencies.lock
 .vscode/
 .idea/
 Thumbs.db
+.playwright-cli/
+methods/**/deploy/flows-backup-2*.json

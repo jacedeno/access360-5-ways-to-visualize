@@ -64,29 +64,32 @@ access360/43250372/dyn/vib/notify (multipart fragments)
 
 ## Prerequisites
 
-- Node-RED (deploy as a **Docker container on `192.168.68.150`**, or reuse the
-  existing `iot-node-red` on the stack — but keep this flow separate from the
-  production ingestion flow).
-- Palette nodes:
-  - `node-red-dashboard` (charts/UI) — or `@flowfuse/node-red-dashboard` (Dashboard 2.0).
-  - An FFT helper: `node-red-contrib-fft`, or a function node using a JS FFT lib
-    (e.g. `fft.js`), or approach (B) above.
-  - A heatmap/waterfall widget: `node-red-contrib-ui-heatmap`, ECharts via
-    `node-red-contrib-ui-echarts`, or a `ui_template` canvas.
-- Broker details — [`../../docs/backend-context.md`](../../docs/backend-context.md):
-  `iot-hivemq:1883` / `192.168.68.150:1883`, TLS off, anonymous.
-- Target sensor: WS300 `22255728` (has verified live waveform).
+This deploys **into the existing `iot-nodered`** on the `.150` IoT stack — no new
+container. That Node-RED already has everything needed:
+
+- **`@flowfuse/node-red-dashboard` (Dashboard 2.0)** — the `ui-*` widgets. Already
+  installed; this flow targets D2.0 (Vue), not the classic Dashboard 1.x.
+- The **FFT is a plain function node** (no `node-red-contrib-fft` needed) — the math
+  is self-contained in the flow (mirrors `lib/fft.js`).
+- The **waterfall is a `ui-template` canvas** (no heatmap palette needed).
+- Reuses the existing **`iot-hivemq` broker config** node (id `a599e2ecbf5f669d`) —
+  no second broker connection.
+- Target sensor: WS300 `22255728` (verified live triaxial waveform).
+
+> The production "CTC Vibration Observability" flow on the same Node-RED is left
+> untouched — Method 4 is added as a separate tab + dashboard page (`/access360`).
 
 ## What's in this folder (Phase 2 — delivered)
 
 | Path | What it is |
 |---|---|
-| `flow.json` | Importable Node-RED flow: `mqtt in` → reassemble+unwrap → FFT → spectrum chart + waterfall, plus an axis dropdown and an offline "Load fixture" path. |
+| `flow.json` | The Node-RED flow (Dashboard 2.0): `mqtt in` → reassemble+unwrap → FFT → spectrum + waterfall `ui-template`s, an axis dropdown, and an offline "Load fixture" path. |
 | `lib/fft.js` | Dependency-free Hann-window + radix-2 FFT + single-sided amplitude spectrum (canonical source; the flow's FFT node embeds a copy). |
 | `lib/reassemble.js` | Multipart reassembly + `Reading`-wrapper unwrap (canonical source). |
 | `test/run.js` | `node test/run.js` — runs the signal core against the real fixture and asserts a sane spectrum. **No dependencies.** |
 | `fixtures/ws300-dyn-vib-notify.json` | A **real** captured WS300 reading (sensor `22255728`, ~514 KB) for offline dev/test. |
-| `Dockerfile` + `docker-compose.yml` | Standalone Node-RED (with `node-red-dashboard`) deployable on `192.168.68.150`. |
+| `deploy/deploy.sh` | Idempotent additive deploy into the existing `iot-nodered` via its admin API (backs up current flows first; production flow preserved). |
+| `docs-img/` | Screenshots of the live dashboard (spectrum + waterfall). |
 
 ### Quick check (no Node-RED needed)
 
@@ -98,15 +101,28 @@ node test/run.js
 ### Deploy + use
 
 ```bash
-docker compose up -d --build
-# http://192.168.68.150:1880/     -> editor: Import flow.json (once) -> Deploy
-# http://192.168.68.150:1880/ui   -> dashboard: spectrum + scrolling waterfall
+./deploy/deploy.sh                 # -> POSTs the flow into iot-nodered @ .150:1880
+# open http://192.168.68.150:1880/dashboard/access360   (spectrum + scrolling waterfall)
 ```
 
-Without live readings, hit the **"Load fixture"** inject in the editor to push the
-real captured waveform through the whole pipeline. To force a fresh live reading,
-publish to `access360/43250372/dyn/vib/trigger` (`{"Serial":22255728}`) — note the
-4G cost below.
+`deploy.sh` is additive and idempotent: it backs up the current flows, drops any
+prior copy of this method, appends the Method-4 tab + `/access360` page, and POSTs —
+the production "CTC Vibration" flow is preserved. One-time, copy the fixture into the
+container so the offline inject works (see the header of `deploy/deploy.sh`).
+
+Without live readings, hit the **"Load fixture"** inject (or
+`curl -XPOST http://192.168.68.150:1880/inject/a360_inj`) to push the real captured
+waveform through the whole pipeline. To force a fresh *live* reading, publish to
+`access360/43250372/dyn/vib/trigger` (`{"Serial":22255728}`) — note the 4G cost below.
+
+### Verified live (2026-06-22)
+
+Deployed into `iot-nodered` and rendered on `/dashboard/access360`: the spectrum
+shows the dominant peak at **~3.2 kHz** (`peak 1.55e-2 g`, axis Z, sensor 22255728)
+and the waterfall scrolls. 0 console errors.
+
+![Dashboard — spectrum](docs-img/dashboard-waterfall.png)
+![Dashboard — waterfall](docs-img/dashboard-waterfall-full.png)
 
 ### Findings baked in from the live broker (2026-06-22)
 
@@ -133,7 +149,8 @@ publish to `access360/43250372/dyn/vib/trigger` (`{"Serial":22255728}`) — note
 
 ## Still to do
 
-- Capture a **screenshot/GIF** of the live waterfall once deployed on `.150`.
+- Capture the waterfall filling over **continuous live readings** (the committed
+  shots are from repeated fixture injects, so the rows are identical).
 - Optional: an on-demand **`dyn/vib/trigger` button** wired into the dashboard
   (kept out for now to avoid accidental 4G-costly triggers during the demo).
 - Optional: validate amplitude scaling against approach (B) (`dyn/fft/get`), whose

@@ -1,109 +1,118 @@
 [
   {
-    "id": "f04",
+    "id": "a360_m4_tab",
     "type": "tab",
     "label": "Method 4 \u2014 FFT / Waterfall",
     "disabled": false,
-    "info": "CTC dyn/vib/notify -> reassemble -> FFT -> spectrum + waterfall. See README.md"
+    "info": "CTC dyn/vib/notify -> reassemble -> FFT -> spectrum + waterfall (Dashboard 2.0)."
   },
   {
-    "id": "brk1",
-    "type": "mqtt-broker",
-    "name": "iot-hivemq",
-    "broker": "iot-hivemq",
-    "port": "1883",
-    "clientid": "",
-    "autoConnect": true,
-    "usetls": false,
-    "protocolVersion": "4",
-    "keepalive": "60",
-    "cleansession": true,
-    "birthTopic": "",
-    "closeTopic": "",
-    "willTopic": "",
-    "sessionExpiry": ""
+    "id": "a360_uibase",
+    "type": "ui-base",
+    "name": "Dashboard",
+    "path": "/dashboard"
   },
   {
-    "id": "uibase",
-    "type": "ui_base",
-    "theme": {
-      "name": "theme-dark",
-      "lightTheme": {
-        "default": true
-      },
-      "darkTheme": {
-        "default": true
-      }
+    "id": "a360_uitheme",
+    "type": "ui-theme",
+    "name": "A360 Dark",
+    "colors": {
+      "surface": "#1b1f27",
+      "primary": "#0094CE",
+      "bgPage": "#0e1116",
+      "groupBg": "#1b1f27",
+      "groupOutline": "#2b2f37"
     },
-    "site": {
-      "name": "ACCESS360",
-      "hideToolbar": "false",
-      "allowSwipe": "false",
-      "dateFormat": "YYYY-MM-DD HH:mm"
+    "sizes": {
+      "density": "default",
+      "pagePadding": "12px",
+      "groupGap": "12px",
+      "groupBorderRadius": "4px",
+      "widgetGap": "12px"
     }
   },
   {
-    "id": "uitab",
-    "type": "ui_tab",
+    "id": "a360_uipage",
+    "type": "ui-page",
     "name": "ACCESS360 Vibration",
-    "icon": "dashboard",
-    "order": 1,
-    "disabled": false,
-    "hidden": false
-  },
-  {
-    "id": "gctrl",
-    "type": "ui_group",
-    "name": "Controls",
-    "tab": "uitab",
-    "order": 1,
-    "disp": true,
-    "width": "6",
-    "collapse": false
-  },
-  {
-    "id": "gspec",
-    "type": "ui_group",
-    "name": "FFT Spectrum (amplitude vs frequency)",
-    "tab": "uitab",
-    "order": 2,
-    "disp": true,
-    "width": "12",
-    "collapse": false
-  },
-  {
-    "id": "gwf",
-    "type": "ui_group",
-    "name": "Waterfall (frequency x time)",
-    "tab": "uitab",
+    "ui": "a360_uibase",
+    "path": "/access360",
+    "icon": "chart-bell-curve",
+    "layout": "grid",
+    "theme": "a360_uitheme",
     "order": 3,
-    "disp": true,
-    "width": "12",
-    "collapse": false
+    "className": "",
+    "visible": true,
+    "disabled": false
   },
   {
-    "id": "mqttin",
+    "id": "a360_g_ctrl",
+    "type": "ui-group",
+    "name": "Controls",
+    "page": "a360_uipage",
+    "width": "6",
+    "height": "1",
+    "order": 1,
+    "showTitle": true,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "a360_g_spec",
+    "type": "ui-group",
+    "name": "FFT Spectrum (amplitude vs frequency)",
+    "page": "a360_uipage",
+    "width": "12",
+    "height": "7",
+    "order": 2,
+    "showTitle": true,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "a360_g_wf",
+    "type": "ui-group",
+    "name": "Waterfall (frequency x time)",
+    "page": "a360_uipage",
+    "width": "12",
+    "height": "9",
+    "order": 3,
+    "showTitle": true,
+    "className": "",
+    "visible": true,
+    "disabled": false,
+    "groupType": "default"
+  },
+  {
+    "id": "a360_mqttin",
     "type": "mqtt in",
-    "z": "f04",
+    "z": "a360_m4_tab",
     "name": "dyn/vib/notify",
     "topic": "access360/43250372/dyn/vib/notify",
     "qos": "1",
     "datatype": "auto-detect",
-    "broker": "brk1",
+    "broker": "a599e2ecbf5f669d",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
     "inputs": 0,
-    "x": 150,
+    "x": 160,
     "y": 120,
     "wires": [
       [
-        "fnreasm"
+        "a360_reasm"
       ]
     ]
   },
   {
-    "id": "inj",
+    "id": "a360_inj",
     "type": "inject",
-    "z": "f04",
-    "name": "Load fixture (offline test)",
+    "z": "a360_m4_tab",
+    "name": "Load fixture (offline)",
     "props": [
       {
         "p": "payload"
@@ -116,14 +125,14 @@
     "y": 200,
     "wires": [
       [
-        "filein"
+        "a360_filein"
       ]
     ]
   },
   {
-    "id": "filein",
+    "id": "a360_filein",
     "type": "file in",
-    "z": "f04",
+    "z": "a360_m4_tab",
     "name": "ws300 fixture",
     "filename": "/data/fixtures/ws300-dyn-vib-notify.json",
     "filenameType": "str",
@@ -131,18 +140,18 @@
     "chunk": false,
     "sendError": false,
     "encoding": "none",
-    "x": 420,
+    "x": 410,
     "y": 200,
     "wires": [
       [
-        "parsefix"
+        "a360_parse"
       ]
     ]
   },
   {
-    "id": "parsefix",
+    "id": "a360_parse",
     "type": "json",
-    "z": "f04",
+    "z": "a360_m4_tab",
     "name": "parse",
     "property": "payload",
     "action": "obj",
@@ -151,16 +160,16 @@
     "y": 200,
     "wires": [
       [
-        "fnreasm"
+        "a360_reasm"
       ]
     ]
   },
   {
-    "id": "fnreasm",
+    "id": "a360_reasm",
     "type": "function",
-    "z": "f04",
+    "z": "a360_m4_tab",
     "name": "reassemble + unwrap",
-    "func": "// Multipart reassembly + Reading-wrapper unwrap (mirror of lib/reassemble.js)\nvar store = context.get('mp') || {};\nfunction feed(o){\n  if(o==null||typeof o!=='object'||o.MultiPart_ID===undefined) return o;\n  var id=o.MultiPart_ID;\n  var buf=store[id]||(store[id]=[]);\n  buf.push(String(o.Data==null?'':o.Data));\n  try{ var p=JSON.parse(buf.join('')); delete store[id]; return p; }\n  catch(e){ return null; }\n}\nvar parsed = feed(msg.payload);\ncontext.set('mp', store);\nif(parsed==null) return null;            // still buffering fragments\nvar r = (parsed && parsed.Reading && typeof parsed.Reading==='object') ? parsed.Reading : parsed;\nif(!r || !r.Fs || !r.Samples){ node.warn('dyn/vib without waveform fields'); return null; }\nmsg.meta = { serial:r.Serial, id:r.ID, time:r.Time, Fs:r.Fs, Samples:r.Samples };\nmsg.axes = { X:r.X, Y:r.Y, Z:r.Z };\nnode.status({fill:'green',shape:'dot',text:'rd '+r.Serial+' #'+r.ID});\nreturn msg;\n",
+    "func": "// Multipart reassembly + Reading-wrapper unwrap (mirror of lib/reassemble.js)\nvar store = context.get('mp') || {};\nfunction feed(o){\n  if(o==null||typeof o!=='object'||o.MultiPart_ID===undefined) return o;\n  var id=o.MultiPart_ID; var buf=store[id]||(store[id]=[]);\n  buf.push(String(o.Data==null?'':o.Data));\n  try{ var p=JSON.parse(buf.join('')); delete store[id]; return p; }\n  catch(e){ return null; }\n}\nvar parsed = feed(msg.payload);\ncontext.set('mp', store);\nif(parsed==null) return null;\nvar r = (parsed && parsed.Reading && typeof parsed.Reading==='object') ? parsed.Reading : parsed;\nif(!r || !r.Fs || !r.Samples){ node.warn('dyn/vib without waveform fields'); return null; }\nmsg.meta = { serial:r.Serial, id:r.ID, time:r.Time, Fs:r.Fs, Samples:r.Samples };\nmsg.axes = { X:r.X, Y:r.Y, Z:r.Z };\nnode.status({fill:'green',shape:'dot',text:'rd '+r.Serial+' #'+r.ID});\nreturn msg;\n",
     "outputs": 1,
     "noerr": 0,
     "initialize": "",
@@ -170,17 +179,17 @@
     "y": 120,
     "wires": [
       [
-        "fnfft"
+        "a360_fft"
       ]
     ]
   },
   {
-    "id": "fnfft",
+    "id": "a360_fft",
     "type": "function",
-    "z": "f04",
+    "z": "a360_m4_tab",
     "name": "FFT + downsample",
-    "func": "// FFT -> single-sided spectrum -> downsample -> [chart, waterfall]\n// (mirror of lib/fft.js; 6400 samples Hann-windowed and zero-padded to 8192)\nfunction nextPow2(n){var p=1;while(p<n)p<<=1;return p;}\nfunction hann(N){var w=new Float64Array(N);for(var i=0;i<N;i++)w[i]=0.5*(1-Math.cos(2*Math.PI*i/(N-1)));return w;}\nfunction fft(re,im){var n=re.length;for(var i=1,j=0;i<n;i++){var bit=n>>1;for(;j&bit;bit>>=1)j^=bit;j^=bit;if(i<j){var tr=re[i];re[i]=re[j];re[j]=tr;var ti=im[i];im[i]=im[j];im[j]=ti;}}for(var L=2;L<=n;L<<=1){var ang=-2*Math.PI/L;var wr=Math.cos(ang),wi=Math.sin(ang);for(var s=0;s<n;s+=L){var cwr=1,cwi=0;for(var k=0;k<L/2;k++){var a=s+k,b=s+k+L/2;var vr=re[b]*cwr-im[b]*cwi;var vi=re[b]*cwi+im[b]*cwr;re[b]=re[a]-vr;im[b]=im[a]-vi;re[a]+=vr;im[a]+=vi;var ncwr=cwr*wr-cwi*wi;cwi=cwr*wi+cwi*wr;cwr=ncwr;}}}}\nfunction spectrum(sig,Fs){var N0=sig.length;var w=hann(N0);var Nfft=nextPow2(N0);var re=new Float64Array(Nfft),im=new Float64Array(Nfft);var ws=0;for(var i=0;i<N0;i++){re[i]=sig[i]*w[i];ws+=w[i];}fft(re,im);var half=Nfft>>1;var mag=new Float64Array(half),fr=new Float64Array(half);var df=Fs/Nfft;for(var k=0;k<half;k++){var m=Math.sqrt(re[k]*re[k]+im[k]*im[k]);mag[k]=(k===0?1:2)*m/ws;fr[k]=k*df;}return {freqs:fr,mag:mag};}\n\nvar axis = flow.get('axis') || 'Z';\nvar sig = (msg.axes && msg.axes[axis]) ? msg.axes[axis] : null;\nif(!sig || !sig.length){ node.warn('axis '+axis+' empty (WS200 is single-axis)'); return null; }\nvar sp = spectrum(sig, msg.meta.Fs);\nvar half = sp.mag.length;\n\nvar BINS = 256, step = half/BINS;\nvar bars = new Array(BINS), freqs = new Array(BINS);\nfor(var b=0;b<BINS;b++){\n  var lo=Math.floor(b*step), hi=Math.floor((b+1)*step); if(hi<=lo)hi=lo+1;\n  var mx=0, fAt=sp.freqs[lo];\n  for(var k=lo;k<hi&&k<half;k++){ if(sp.mag[k]>mx){mx=sp.mag[k];fAt=sp.freqs[k];} }\n  bars[b]=mx; freqs[b]=fAt;\n}\nvar pts=[]; for(var c=0;c<BINS;c++) pts.push({x:Math.round(freqs[c]),y:bars[c]});\nvar chartMsg = { payload:[ {series:[axis], data:[pts], labels:['']} ] };\nvar wfMsg = { payload:{ axis:axis, serial:msg.meta.serial, time:msg.meta.time,\n  fmax:Math.round(sp.freqs[half-1]), bins:bars } };\nnode.status({fill:'blue',shape:'dot',text:axis+' fft ok'});\nreturn [chartMsg, wfMsg];\n",
-    "outputs": 2,
+    "func": "// FFT -> single-sided spectrum -> downsample -> one combined payload\nfunction nextPow2(n){var p=1;while(p<n)p<<=1;return p;}\nfunction hann(N){var w=new Float64Array(N);for(var i=0;i<N;i++)w[i]=0.5*(1-Math.cos(2*Math.PI*i/(N-1)));return w;}\nfunction fft(re,im){var n=re.length;for(var i=1,j=0;i<n;i++){var bit=n>>1;for(;j&bit;bit>>=1)j^=bit;j^=bit;if(i<j){var tr=re[i];re[i]=re[j];re[j]=tr;var ti=im[i];im[i]=im[j];im[j]=ti;}}for(var L=2;L<=n;L<<=1){var ang=-2*Math.PI/L;var wr=Math.cos(ang),wi=Math.sin(ang);for(var s=0;s<n;s+=L){var cwr=1,cwi=0;for(var k=0;k<L/2;k++){var a=s+k,b=s+k+L/2;var vr=re[b]*cwr-im[b]*cwi;var vi=re[b]*cwi+im[b]*cwr;re[b]=re[a]-vr;im[b]=im[a]-vi;re[a]+=vr;im[a]+=vi;var ncwr=cwr*wr-cwi*wi;cwi=cwr*wi+cwi*wr;cwr=ncwr;}}}}\nfunction spectrum(sig,Fs){var N0=sig.length;var w=hann(N0);var Nfft=nextPow2(N0);var re=new Float64Array(Nfft),im=new Float64Array(Nfft);var ws=0;for(var i=0;i<N0;i++){re[i]=sig[i]*w[i];ws+=w[i];}fft(re,im);var half=Nfft>>1;var mag=new Float64Array(half),fr=new Float64Array(half);var df=Fs/Nfft;for(var k=0;k<half;k++){var m=Math.sqrt(re[k]*re[k]+im[k]*im[k]);mag[k]=(k===0?1:2)*m/ws;fr[k]=k*df;}return {freqs:fr,mag:mag};}\n\nvar axis = flow.get('axis') || 'Z';\nvar sig = (msg.axes && msg.axes[axis]) ? msg.axes[axis] : null;\nif(!sig || !sig.length){ node.warn('axis '+axis+' empty (WS200 is single-axis)'); return null; }\nvar sp = spectrum(sig, msg.meta.Fs);\nvar half = sp.mag.length;\nvar BINS = 256, step = half/BINS;\nvar bars = new Array(BINS), freqs = new Array(BINS);\nfor(var b=0;b<BINS;b++){\n  var lo=Math.floor(b*step), hi=Math.floor((b+1)*step); if(hi<=lo)hi=lo+1;\n  var mx=0, fAt=sp.freqs[lo];\n  for(var k=lo;k<hi&&k<half;k++){ if(sp.mag[k]>mx){mx=sp.mag[k];fAt=sp.freqs[k];} }\n  bars[b]=mx; freqs[b]=Math.round(fAt);\n}\nnode.status({fill:'blue',shape:'dot',text:axis+' fft ok'});\nreturn { payload:{ axis:axis, serial:msg.meta.serial, time:msg.meta.time,\n  fmax:Math.round(sp.freqs[half-1]), bins:bars, freqs:freqs } };\n",
+    "outputs": 1,
     "noerr": 0,
     "initialize": "",
     "finalize": "",
@@ -189,62 +198,57 @@
     "y": 120,
     "wires": [
       [
-        "chart",
-        "dbg"
-      ],
-      [
-        "wf"
+        "a360_spec",
+        "a360_wf",
+        "a360_dbg"
       ]
     ]
   },
   {
-    "id": "axdd",
-    "type": "ui_dropdown",
-    "z": "f04",
+    "id": "a360_axis",
+    "type": "ui-dropdown",
+    "z": "a360_m4_tab",
     "name": "Axis",
     "label": "Axis",
     "tooltip": "",
-    "place": "Select axis",
-    "group": "gctrl",
+    "group": "a360_g_ctrl",
     "order": 1,
-    "width": 0,
-    "height": 0,
+    "width": "4",
+    "height": "1",
     "passthru": false,
     "multiple": false,
     "options": [
       {
         "label": "Z",
-        "value": "Z",
-        "type": "str"
+        "value": "Z"
       },
       {
         "label": "Y",
-        "value": "Y",
-        "type": "str"
+        "value": "Y"
       },
       {
         "label": "X",
-        "value": "X",
-        "type": "str"
+        "value": "X"
       }
     ],
     "payload": "",
     "topic": "topic",
     "topicType": "msg",
+    "className": "",
     "x": 170,
     "y": 300,
     "wires": [
       [
-        "fnsetax"
+        "a360_setax"
       ]
     ]
   },
   {
-    "id": "fnsetax",
+    "id": "a360_setax",
     "type": "function",
-    "z": "f04",
+    "z": "a360_m4_tab",
     "name": "set axis",
-    "func": "// dropdown -> flow context axis (applies to next reading)\nflow.set('axis', msg.payload);\nnode.status({fill:'grey',shape:'ring',text:'axis='+msg.payload});\nreturn null;\n",
+    "func": "flow.set('axis', msg.payload);\nnode.status({fill:'grey',shape:'ring',text:'axis='+msg.payload});\nreturn null;\n",
     "outputs": 0,
     "noerr": 0,
     "x": 380,
@@ -252,66 +256,57 @@
     "wires": []
   },
   {
-    "id": "chart",
-    "type": "ui_chart",
-    "z": "f04",
+    "id": "a360_spec",
+    "type": "ui-template",
+    "z": "a360_m4_tab",
+    "group": "a360_g_spec",
+    "page": "",
+    "ui": "",
     "name": "Spectrum",
-    "group": "gspec",
     "order": 1,
-    "width": 0,
-    "height": 0,
-    "label": "FFT spectrum",
-    "chartType": "line",
-    "legend": "false",
-    "xformat": "auto",
-    "interpolate": "linear",
-    "nodata": "waiting for FFT\u2026",
-    "dot": false,
-    "ymin": "0",
-    "ymax": "",
-    "removeOlder": 1,
-    "removeOlderPoints": "",
-    "removeOlderUnit": "3600",
-    "cutout": 0,
-    "useOneColor": false,
-    "useUTC": false,
-    "colors": [
-      "#1f77b4"
-    ],
-    "outputs": 1,
-    "useDifferentColor": false,
+    "width": "12",
+    "height": "6",
+    "head": "",
+    "format": "<template>\n  <div style=\"padding:4px\">\n    <canvas ref=\"sp\" width=\"512\" height=\"200\"\n            style=\"width:100%;height:200px;background:#0a0c12;border-radius:4px\"></canvas>\n    <div style=\"color:#9aa;font:12px/1.4 monospace;margin-top:4px\">{{ label }}</div>\n  </div>\n</template>\n<script>\nexport default {\n  data(){ return { label:'waiting for FFT\u2026' } },\n  watch:{ msg(m){\n    if(!m||!m.payload||!m.payload.bins) return\n    const p=m.payload, cv=this.$refs.sp; if(!cv) return\n    const ctx=cv.getContext('2d'), W=cv.width, H=cv.height, bins=p.bins, n=bins.length\n    let max=1e-9; for(let i=0;i<n;i++) if(bins[i]>max) max=bins[i]\n    ctx.fillStyle='#0a0c12'; ctx.fillRect(0,0,W,H)\n    ctx.strokeStyle='#3a8edb'; ctx.lineWidth=1; ctx.beginPath()\n    for(let x=0;x<n;x++){ const px=x/(n-1)*W, py=H-(bins[x]/max)*(H-8)-2; x?ctx.lineTo(px,py):ctx.moveTo(px,py) }\n    ctx.stroke()\n    this.label='sensor '+p.serial+' \u2022 axis '+p.axis+' \u2022 0\u2013'+p.fmax+' Hz \u2022 peak '+max.toExponential(2)+' g'\n  } }\n}\n</script>\n",
+    "storeOutMessages": true,
+    "passthru": false,
+    "resendOnRefresh": true,
+    "templateScope": "local",
     "className": "",
-    "x": 860,
+    "x": 880,
     "y": 100,
     "wires": [
       []
     ]
   },
   {
-    "id": "wf",
-    "type": "ui_template",
-    "z": "f04",
+    "id": "a360_wf",
+    "type": "ui-template",
+    "z": "a360_m4_tab",
+    "group": "a360_g_wf",
+    "page": "",
+    "ui": "",
     "name": "Waterfall",
-    "group": "gwf",
     "order": 1,
     "width": "12",
-    "height": "7",
-    "format": "<div style=\"padding:4px\">\n  <canvas id=\"a360wf\" width=\"512\" height=\"260\"\n          style=\"width:100%;height:260px;background:#05060a;border-radius:4px\"></canvas>\n  <div id=\"a360wflbl\" style=\"color:#9aa;font:12px/1.4 monospace;margin-top:4px\">waiting for readings\u2026</div>\n</div>\n<script>\n(function(scope){\n  var cv=document.getElementById('a360wf'), ctx=cv.getContext('2d');\n  var W=cv.width, H=cv.height, gmax=1e-9;\n  function turbo(v){ // 0..1 -> blue->green->red\n    v=Math.max(0,Math.min(1,v));\n    var r=Math.round(255*Math.min(1,Math.max(0,1.6*v-0.2)));\n    var g=Math.round(255*Math.min(1,Math.max(0,1.6*v>1?2-1.6*v:1.6*v-0.1)));\n    var b=Math.round(255*Math.min(1,Math.max(0,1.0-1.8*v)));\n    return 'rgb('+r+','+g+','+b+')';\n  }\n  scope.$watch('msg', function(msg){\n    if(!msg||!msg.payload||!msg.payload.bins) return;\n    var bins=msg.payload.bins, n=bins.length, i;\n    for(i=0;i<n;i++) if(bins[i]>gmax) gmax=bins[i];\n    var img=ctx.getImageData(0,0,W,H-1);   // scroll down 1px\n    ctx.putImageData(img,0,1);\n    for(var x=0;x<W;x++){\n      var v=bins[Math.floor(x/W*n)]/gmax;\n      ctx.fillStyle=turbo(v);\n      ctx.fillRect(x,0,1,1);\n    }\n    document.getElementById('a360wflbl').textContent =\n      'sensor '+msg.payload.serial+'  \u2022  axis '+msg.payload.axis+\n      '  \u2022  0\u2013'+msg.payload.fmax+' Hz  \u2022  '+(msg.payload.time||'');\n  });\n})(scope);\n</script>\n",
+    "height": "8",
+    "head": "",
+    "format": "<template>\n  <div style=\"padding:4px\">\n    <canvas ref=\"wf\" width=\"512\" height=\"260\"\n            style=\"width:100%;height:260px;background:#05060a;border-radius:4px\"></canvas>\n    <div style=\"color:#9aa;font:12px/1.4 monospace;margin-top:4px\">{{ label }}</div>\n  </div>\n</template>\n<script>\nexport default {\n  data(){ return { label:'waiting for readings\u2026', gmax:1e-9 } },\n  methods:{ turbo(v){ v=Math.max(0,Math.min(1,v))\n    const r=Math.round(255*Math.min(1,Math.max(0,1.6*v-0.2)))\n    const g=Math.round(255*Math.min(1,Math.max(0, v<0.625?1.6*v-0.1:2-1.6*v)))\n    const b=Math.round(255*Math.min(1,Math.max(0,1.0-1.8*v)))\n    return 'rgb('+r+','+g+','+b+')' } },\n  watch:{ msg(m){\n    if(!m||!m.payload||!m.payload.bins) return\n    const p=m.payload, cv=this.$refs.wf; if(!cv) return\n    const ctx=cv.getContext('2d'), W=cv.width, H=cv.height, bins=p.bins, n=bins.length\n    for(let i=0;i<n;i++) if(bins[i]>this.gmax) this.gmax=bins[i]\n    const img=ctx.getImageData(0,0,W,H-1); ctx.putImageData(img,0,1)\n    for(let x=0;x<W;x++){ const v=bins[Math.floor(x/W*n)]/this.gmax; ctx.fillStyle=this.turbo(v); ctx.fillRect(x,0,1,1) }\n    this.label='sensor '+p.serial+' \u2022 axis '+p.axis+' \u2022 0\u2013'+p.fmax+' Hz \u2022 '+(p.time||'')\n  } }\n}\n</script>\n",
     "storeOutMessages": true,
-    "fwdInMessages": true,
-    "resendOnRefresh": false,
+    "passthru": false,
+    "resendOnRefresh": true,
     "templateScope": "local",
     "className": "",
-    "x": 860,
+    "x": 880,
     "y": 160,
     "wires": [
       []
     ]
   },
   {
-    "id": "dbg",
+    "id": "a360_dbg",
     "type": "debug",
-    "z": "f04",
+    "z": "a360_m4_tab",
     "name": "spectrum",
     "active": false,
     "tosidebar": true,
@@ -319,7 +314,7 @@
     "tostatus": false,
     "complete": "payload",
     "targetType": "msg",
-    "x": 860,
+    "x": 880,
     "y": 60,
     "wires": []
   }
