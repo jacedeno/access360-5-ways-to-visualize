@@ -11,11 +11,20 @@ each tool talks straight to the broker topics the gateway already publishes. The
 goal is to show how much observability you can get out of the raw MQTT stream
 with off-the-shelf tools plus a little firmware.
 
-> **Status:** Phase 1 — scaffold + documentation. The visualization code for each
-> method is added in Phase 2. This repository is intentionally self-contained: all
-> the backend context (broker, topics, payload schemas, sensor IDs, and the Fleet
-> Health metric set) lives under [`docs/`](docs/) so each method can be built
+> **Status:** Phase 2 — building out the methods. Method 4 (Node-RED FFT/waterfall)
+> is **delivered and running live** on the IoT stack; the rest are scaffolded with
+> full setup docs and land next. This repository is intentionally self-contained:
+> all the backend context (broker, topics, payload schemas, sensor IDs, and the
+> Fleet Health metric set) lives under [`docs/`](docs/) so each method can be built
 > without the original platform repository.
+>
+> | # | Method | Status |
+> |---|---|---|
+> | 1 | MQTTX | 📄 documented |
+> | 2 | IoT MQTT Panel | 📄 documented |
+> | 3 | Grafana Live | 📄 documented |
+> | 4 | Node-RED FFT/waterfall ⭐ | ✅ **delivered + live** |
+> | 5 | SenseCAP Indicator D1L ⭐ | 📄 documented |
 
 ---
 
@@ -122,10 +131,16 @@ documented once, here:
 
 ## Deployment note
 
-If a method needs a helper service (e.g. a containerized Grafana or Node-RED), it
-is designed to be deployable via **Docker on host `192.168.68.150`**, alongside the
-existing IoT stack. No method requires a custom aggregator microservice — they all
-subscribe to HiveMQ directly.
+If a method needs a helper service (e.g. Grafana or Node-RED), it **reuses the
+existing IoT stack on host `192.168.68.150`** rather than standing up new
+infrastructure. Method 4, for example, deploys *into* the Node-RED that already runs
+there — added as a separate flow/dashboard page, leaving the production flow
+untouched (see [`methods/04-node-red-fft-waterfall/deploy/`](methods/04-node-red-fft-waterfall/deploy/)).
+No method requires a custom aggregator microservice — they all subscribe to HiveMQ
+directly.
+
+> The IoT stack on `.150` itself (HiveMQ, Node-RED, InfluxDB 3, Grafana) is a
+> separate project and will be written up on its own; this repo only consumes it.
 
 ## License
 
