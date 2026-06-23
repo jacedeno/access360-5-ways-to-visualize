@@ -1,0 +1,34 @@
+idf_component_register(
+    SRCS
+        "main.c"
+        "wifi_sta.c"
+        "time_sync.c"
+        "mqtt_client_app.c"
+        "fleet_state.c"
+        "ui/ui.c"
+        "ui/ui_screen_broker.c"
+        "ui/ui_screen_sensors.c"
+        "ui/ui_screen_power.c"
+        "ui/ui_screen_sim.c"
+        "bsp/display.c"
+    INCLUDE_DIRS
+        "."
+        "ui"
+        "bsp"
+    REQUIRES
+        nvs_flash
+        esp_wifi
+        esp_event
+        esp_netif
+        mqtt
+        json
+        lwip
+        esp_timer
+        esp_lcd
+        driver
+        # Managed components (from idf_component.yml). The component manager
+        # registers them under these names; main calls into them directly.
+        lvgl
+        esp_lcd_touch
+        esp_lcd_touch_ft5x06
+)

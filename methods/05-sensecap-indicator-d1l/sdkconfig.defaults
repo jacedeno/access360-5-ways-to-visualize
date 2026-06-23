@@ -1,0 +1,56 @@
+# Default configuration for the SenseCAP Indicator D1L (ESP32-S3) fleet-health
+# monitor. These are applied on `idf.py set-target esp32s3` / first build; the
+# user can override anything via `idf.py menuconfig`. Secrets (Wi-Fi, broker)
+# live under the FLEET_HEALTH menu (see Kconfig.projbuild) and are stored in the
+# build's sdkconfig, which is gitignored.
+
+# --- Target -----------------------------------------------------------------
+CONFIG_IDF_TARGET="esp32s3"
+
+# --- Flash: SenseCAP Indicator D1L ships 8 MB flash -------------------------
+CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="8MB"
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# --- PSRAM (Octal SPI on the ESP32-S3 module used by the D1L) ----------------
+# LVGL needs a large draw buffer for the 480x480 panel; keep it in PSRAM.
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_80M=y
+CONFIG_SPIRAM_USE_MALLOC=y
+CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y
+# Allow large (LVGL) buffers to come from PSRAM transparently.
+CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384
+
+# --- CPU --------------------------------------------------------------------
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+CONFIG_FREERTOS_HZ=1000
+
+# --- Main task stack (UI + cJSON parsing on app_main path) ------------------
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
+
+# --- MQTT (esp-mqtt) --------------------------------------------------------
+CONFIG_MQTT_PROTOCOL_5=y
+CONFIG_MQTT_TRANSPORT_SSL=n
+CONFIG_MQTT_TRANSPORT_WEBSOCKET=n
+
+# --- Wi-Fi / lwIP sane defaults ---------------------------------------------
+CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=8
+CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM=32
+CONFIG_LWIP_SNTP_MAX_SERVERS=2
+
+# --- LVGL 9 configuration (the managed lvgl/lvgl component is Kconfig-driven) -
+# 16-bit color to match the RGB565 panel.
+CONFIG_LV_COLOR_DEPTH_16=y
+# We feed the tick ourselves via lv_tick_inc() from an esp_timer (bsp/display.c);
+# LVGL 9 always provides lv_tick_inc(), so no custom-tick Kconfig is required.
+# Fonts the UI uses (montserrat 14 is on by default; we add 20 and 24).
+CONFIG_LV_FONT_MONTSERRAT_14=y
+CONFIG_LV_FONT_MONTSERRAT_20=y
+CONFIG_LV_FONT_MONTSERRAT_24=y
+# Use the FreeRTOS heap for LVGL allocations.
+CONFIG_LV_USE_OS=n
+
+# --- Log level --------------------------------------------------------------
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y

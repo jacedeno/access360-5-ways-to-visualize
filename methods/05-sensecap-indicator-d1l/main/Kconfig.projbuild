@@ -1,0 +1,75 @@
+menu "Fleet Health Indicator"
+
+    menu "Wi-Fi"
+
+        config FLEET_WIFI_SSID
+            string "Wi-Fi SSID"
+            default "changeme-ssid"
+            help
+                SSID (network name) of the Wi-Fi access point the Indicator
+                joins. Must be on the private plane (same LAN as the broker,
+                192.168.68.0/24) or routed via the homelab VPN. Stored in the
+                build's sdkconfig, which is gitignored.
+
+        config FLEET_WIFI_PASSWORD
+            string "Wi-Fi password"
+            default "changeme-psk"
+            help
+                WPA2 pre-shared key for the SSID above. Leave empty for an open
+                network.
+
+        config FLEET_WIFI_MAX_RETRY
+            int "Maximum connection retries before giving up a cycle"
+            default 10
+            range 1 100
+
+    endmenu
+
+    menu "MQTT broker"
+
+        config FLEET_MQTT_BROKER_HOST
+            string "Broker host / IP"
+            default "192.168.68.150"
+            help
+                HiveMQ CE broker host. Default is the private-plane IP. Anonymous,
+                no TLS, MQTT 5.0.
+
+        config FLEET_MQTT_BROKER_PORT
+            int "Broker port"
+            default 1883
+            range 1 65535
+
+        config FLEET_MQTT_KEEPALIVE
+            int "MQTT keepalive (seconds)"
+            default 60
+            range 5 600
+
+    endmenu
+
+    menu "Fleet"
+
+        config FLEET_GATEWAY_SN
+            string "Gateway serial number"
+            default "43250372"
+            help
+                The ConnectBridge gateway serial used as the topic prefix:
+                access360/<gateway_sn>/...
+
+        config FLEET_ONLINE_CUTOFF_S
+            int "Sensor online cutoff (seconds)"
+            default 600
+            help
+                A sensor counts as online if (now - last_seen) is below this.
+                600 s (10 min) matches the platform fleet-health definition.
+
+        config FLEET_SNTP_SERVER
+            string "SNTP server"
+            default "pool.ntp.org"
+            help
+                Used to obtain absolute UTC time for last-seen age. If SNTP never
+                syncs (e.g. no DNS / no internet), the device falls back to
+                relative-from-boot ages.
+
+    endmenu
+
+endmenu

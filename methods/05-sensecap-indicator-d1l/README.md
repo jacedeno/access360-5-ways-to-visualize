@@ -96,20 +96,6 @@ Four screens with back/next navigation, mirroring the fleet-health metric set:
 Thresholds for coloring come straight from
 [`../../docs/fleet-health-metrics.md`](../../docs/fleet-health-metrics.md).
 
-## Build & flash (outline — firmware lands in Phase 2)
-
-```bash
-# On the Fedora dev laptop, with ESP-IDF v5.1.x exported:
-. $IDF_PATH/export.sh
-idf.py set-target esp32s3
-idf.py menuconfig        # set Wi-Fi SSID/PSK and MQTT broker 192.168.68.150:1883
-idf.py build
-idf.py -p /dev/ttyACM0 flash monitor
-```
-
-UI is designed in SquareLine Studio and exported into the project's `ui/`
-component (LVGL 9); the firmware wires esp-mqtt callbacks to the exported widgets.
-
 ## Notes
 
 - **No raw signal plots on the device** — by design. Keep it a status panel.
@@ -117,8 +103,76 @@ component (LVGL 9); the firmware wires esp-mqtt callbacks to the exported widget
 - Anonymous broker means no credentials in firmware — only Wi-Fi creds (set via
   `menuconfig` / NVS, not committed).
 
-## Phase 2 (later)
+## What's in this folder (Phase 2 — delivered)
 
-Commit the ESP-IDF project (`main/`, `CMakeLists.txt`, `sdkconfig.defaults`), the
-SquareLine Studio export (`ui/`), the optional Hologram-poller container, and a
-photo of the running device.
+A complete, buildable ESP-IDF v5.1 project plus the server-side Hologram poller.
+The UI is **hand-written LVGL 9 C** (a SquareLine export would drop into the same
+`main/ui/` and call the same `ui.h` API) — see "Still to do".
+
+| Path | What it is |
+|---|---|
+| `CMakeLists.txt` | Top-level ESP-IDF project (`project(fleet_health_indicator)`). |
+| `sdkconfig.defaults` | Target esp32s3, 8 MB flash, Octal PSRAM, MQTT 5, LVGL 9 (RGB565 + Montserrat fonts). |
+| `partitions.csv` | 8 MB layout: NVS + 3 MB factory app + SPIFFS spare. |
+| `main/CMakeLists.txt` | Component registration + `REQUIRES` (mqtt, json, esp_lcd, …). |
+| `main/idf_component.yml` | Managed components: `lvgl/lvgl ^9`, `esp_lcd_touch` + `esp_lcd_touch_ft5x06`. |
+| `main/Kconfig.projbuild` | `menuconfig` options: Wi-Fi SSID/PSK, broker host/port (default `192.168.68.150`/`1883`), gateway SN, online cutoff, SNTP. No secrets committed. |
+| `main/main.c` | `app_main`: NVS → display/LVGL → Wi-Fi STA → SNTP → MQTT → 1 Hz state-push timer. |
+| `main/wifi_sta.c/.h` | Wi-Fi station with auto-reconnect. |
+| `main/time_sync.c/.h` | SNTP with boot-relative fallback; `fleet_now()` returns epoch or boot seconds. |
+| `main/mqtt_client_app.c/.h` | esp-mqtt (anonymous, no TLS, MQTT 5); subscribes the health topics; parses JSON with cJSON; folds into `fleet_state`. |
+| `main/fleet_state.c/.h` | Thread-safe table keyed by `Serial` (batt, RSSI, last-seen, channel-derived model) + broker/gateway flags, messages/s + errors/s sliding windows, last error, SIM summary; derives online count + per-sensor age. |
+| `main/bsp/display.c/.h` | esp_lcd RGB panel + FT5x06 touch + LVGL 9 init (display, indev, tick, lock). **Hardware constants marked `TODO: verify against D1L hardware`.** |
+| `main/ui/ui.h` | Clean UI API the firmware calls (`ui_set_broker_connected`, `ui_set_sensor_row`, …). |
+| `main/ui/ui.c` + `ui_screen_*.c` | Four LVGL 9 screens (Broker/Gateway, Sensors, Power & Signal, 4G/SIM) with Back/Next + swipe nav, LED/badge widgets, per-sensor rows, threshold colors. |
+| `hologram-poller/` | Server-side 4G-usage poller (Python + Dockerfile + compose) — publishes `access360/43250372/sim/usage`; runs on `.150`, holds `HOLOGRAM_API_KEY` (the device never does). |
+
+### Data the firmware subscribes to
+
+`proc/checkin/notify` (presence/last-seen/online), `dyn/batt/notify` +
+`proc/reading/notify` (battery, WS100 carries `Batt` here), `rssi/notify` (RSSI),
+`error/notify` + `status/notify` (errors/status), `ap/notify` + `will`
+(gateway/broker presence), and `sim/usage` (from the Hologram poller). Model is
+derived **channel-first** (`proc/reading` ⇒ WS100), then by serial prefix
+(`2225…` ⇒ WS300, `1125…` ⇒ WS200) — matching `docs/sensors-and-gateways.md`.
+
+> **Last-seen age uses broker-arrival time, not the payload `Time`** — the live
+> gateway clock runs ~5 months behind (see the clock-skew note in
+> `docs/sensors-and-gateways.md`), so health freshness is derived locally.
+
+## Build & flash
+
+```bash
+# On the Fedora dev laptop, with ESP-IDF v5.1.x exported:
+. $IDF_PATH/export.sh
+idf.py set-target esp32s3
+idf.py menuconfig        # Fleet Health Indicator -> Wi-Fi SSID/PSK + MQTT broker
+idf.py build
+idf.py -p /dev/ttyACM0 flash monitor
+```
+
+- **menuconfig:** all device settings live under **`Fleet Health Indicator`**
+  (Wi-Fi SSID/PSK, broker host/port — defaulting to `192.168.68.150`/`1883`,
+  gateway serial, online cutoff, SNTP server). They are stored in the build's
+  `sdkconfig`, which is **gitignored** — no Wi-Fi or other secrets are committed.
+- **Hologram poller (on `.150`):**
+  ```bash
+  cd hologram-poller
+  cp .env.example .env        # put the real HOLOGRAM_API_KEY in .env (gitignored)
+  docker compose up -d --build
+  ```
+- Build artifacts (`build/`, `sdkconfig`, `managed_components/`) are already in
+  the repo-root `.gitignore`.
+
+## Still to do
+
+- **Verify the D1L hardware constants** in `main/bsp/display.c` (every line
+  marked `TODO: verify against D1L hardware`): RGB panel GPIO map + porch timing,
+  the ST7701S 3-wire-SPI init sequence, and the FT5x06 touch I2C pins/address.
+  If Seeed's SenseCAP Indicator BSP managed component is available, prefer it for
+  panel/touch bring-up and keep only the LVGL glue from `display.c`.
+- **Optional SquareLine Studio export:** redesign the four screens visually and
+  export into `main/ui/`, wiring the export to the same `ui.h` setters.
+- **Flash + smoke-test** on the device (cannot be done off-hardware): confirm the
+  panel renders, touch/swipe navigates, and live data populates all four screens.
+- **Add a photo** of the running device once flashed.

@@ -1,0 +1,31 @@
+# Hologram 4G SIM-usage poller — deploy on the .150 IoT host.
+#
+# Joins the existing `iot_iot` network so it reaches the broker as `iot-hivemq`.
+# It does NOT spin up any broker/database of its own — it reuses the live stack.
+#
+#   cd methods/05-sensecap-indicator-d1l/hologram-poller
+#   cp .env.example .env        # then put the real HOLOGRAM_API_KEY in .env
+#   docker compose up -d --build
+#
+# The .env file is gitignored (repo-root .gitignore covers `.env` / `.env.*`).
+services:
+  hologram-poller:
+    build: .
+    container_name: hologram-poller
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Broker reachable by its in-stack DNS name on the iot_iot network.
+      MQTT_HOST: iot-hivemq
+      MQTT_PORT: "1883"
+      GATEWAY_SN: "43250372"
+      POLL_INTERVAL_S: "300"
+      # HOLOGRAM_API_KEY and (optionally) HOLOGRAM_DEVICE_ID come from .env.
+    networks:
+      - iot_iot
+
+networks:
+  # The existing IoT stack network created by the .150 compose project.
+  iot_iot:
+    external: true

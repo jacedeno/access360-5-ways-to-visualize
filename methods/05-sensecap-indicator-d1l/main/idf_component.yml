@@ -1,0 +1,24 @@
+# Managed components pulled by the ESP-IDF Component Manager on first build
+# (they land in ./managed_components/, which is gitignored).
+#
+# NOTE on the BSP: Seeed publishes a board-support package for the SenseCAP
+# Indicator. If you have it available in the registry as a managed component,
+# add it here and let it own the panel/touch bring-up instead of bsp/display.c.
+# This project keeps a self-contained esp_lcd path (bsp/display.c) so it builds
+# without depending on a specific BSP version; the panel/touch constants there
+# are marked "TODO: verify against D1L hardware".
+dependencies:
+  idf:
+    version: ">=5.1,<5.2"
+
+  # LVGL 9 graphics library.
+  lvgl/lvgl:
+    version: "^9.1.0"
+
+  # Touch controller driver layer (FT5x06 / FT6336 family on the D1L).
+  # esp_lcd_touch is the generic interface; esp_lcd_touch_ft5x06 the concrete
+  # driver. If the D1L turns out to use a different controller, swap the second.
+  espressif/esp_lcd_touch:
+    version: "^1.1.0"
+  espressif/esp_lcd_touch_ft5x06:
+    version: "^1.0.6"
