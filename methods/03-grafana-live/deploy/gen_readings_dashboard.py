@@ -26,7 +26,7 @@ def pstat(title, expr, x, y, w, h, unit, steps, desc, mappings=None, graph="none
             "targets": [{"refId": "A", "datasource": PROM, "expr": expr, "instant": True}],
             "gridPos": {"x": x, "y": y, "w": w, "h": h}, "fieldConfig": fc,
             "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False},
-                        "colorMode": "background", "graphMode": graph, "textMode": "value_and_name",
+                        "colorMode": "background", "graphMode": graph, "textMode": "value",
                         "justifyMode": "auto"}}
 
 def pgauge(title, expr, x, y, w, h, unit, steps, desc, mx=100):
@@ -94,14 +94,15 @@ TEMP_SQL = ("SELECT date_bin(interval '1 minute', time) AS time, sensor_id, avg(
 panels = []
 panels.append(text(
     "## ACCESS360 — Fleet Health & Readings\n"
-    "**Top:** system condition at a glance (broker, sensors online, last activity, battery, 4G, throughput) — from the "
-    "Spectra ingester (Prometheus). **Bottom:** what the sensors send — vibration (in/s & g) and temperature — from "
-    "InfluxDB. Use the **Sensor** dropdown to overlay all sensors (compare amplitude) or pick one.", 0, 0, 24, 3))
+    "**Top:** system condition at a glance (broker, sensors online, last activity, battery, 4G, throughput) — computed "
+    "by Node-RED from the MQTT stream and served via Prometheus. **Bottom:** what the sensors send — vibration (in/s & g) "
+    "and temperature — from InfluxDB. Use the **Sensor** dropdown to overlay all sensors (compare amplitude) or pick one.",
+    0, 0, 24, 3))
 
 # --- System Health (Prometheus) ---
 panels.append(row("System Health", 3))
 panels.append(pstat("Broker", "max(ingester_mqtt_connected)", 0, 4, 3, 4, "none", OK_RED,
-                    "MQTT broker connection (ingester_mqtt_connected).", mappings=UP_MAP))
+                    "Is the MQTT broker reachable (UP / DOWN).", mappings=UP_MAP))
 panels.append(pstat("Sensors Online", "count(time() - ingester_sensor_last_seen_timestamp_seconds < 600) or vector(0)",
                     3, 4, 3, 4, "none", OK_RED, "Sensors heard from in the last 10 minutes."))
 panels.append(pstat("Worst Last-Seen", "max(time() - ingester_sensor_last_seen_timestamp_seconds)",

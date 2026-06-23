@@ -28,7 +28,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "## ACCESS360 \u2014 Fleet Health & Readings\n**Top:** system condition at a glance (broker, sensors online, last activity, battery, 4G, throughput) \u2014 from the Spectra ingester (Prometheus). **Bottom:** what the sensors send \u2014 vibration (in/s & g) and temperature \u2014 from InfluxDB. Use the **Sensor** dropdown to overlay all sensors (compare amplitude) or pick one."
+        "content": "## ACCESS360 \u2014 Fleet Health & Readings\n**Top:** system condition at a glance (broker, sensors online, last activity, battery, 4G, throughput) \u2014 computed by Node-RED from the MQTT stream and served via Prometheus. **Bottom:** what the sensors send \u2014 vibration (in/s & g) and temperature \u2014 from InfluxDB. Use the **Sensor** dropdown to overlay all sensors (compare amplitude) or pick one."
       }
     },
     {
@@ -48,7 +48,7 @@
       "id": 3,
       "type": "stat",
       "title": "Broker",
-      "description": "MQTT broker connection (ingester_mqtt_connected).",
+      "description": "Is the MQTT broker reachable (UP / DOWN).",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROM_UID}"
@@ -117,7 +117,7 @@
         },
         "colorMode": "background",
         "graphMode": "none",
-        "textMode": "value_and_name",
+        "textMode": "value",
         "justifyMode": "auto"
       }
     },
@@ -179,7 +179,7 @@
         },
         "colorMode": "background",
         "graphMode": "none",
-        "textMode": "value_and_name",
+        "textMode": "value",
         "justifyMode": "auto"
       }
     },
@@ -245,7 +245,7 @@
         },
         "colorMode": "background",
         "graphMode": "none",
-        "textMode": "value_and_name",
+        "textMode": "value",
         "justifyMode": "auto"
       }
     },
@@ -303,7 +303,7 @@
         },
         "colorMode": "background",
         "graphMode": "area",
-        "textMode": "value_and_name",
+        "textMode": "value",
         "justifyMode": "auto"
       }
     },
@@ -365,7 +365,7 @@
         },
         "colorMode": "background",
         "graphMode": "none",
-        "textMode": "value_and_name",
+        "textMode": "value",
         "justifyMode": "auto"
       }
     },
@@ -488,7 +488,7 @@
         },
         "colorMode": "background",
         "graphMode": "area",
-        "textMode": "value_and_name",
+        "textMode": "value",
         "justifyMode": "auto"
       }
     },
