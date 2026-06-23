@@ -12,7 +12,7 @@
   "version": 0,
   "refresh": "",
   "time": {
-    "from": "now-5m",
+    "from": "now-15m",
     "to": "now"
   },
   "panels": [
@@ -24,18 +24,31 @@
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 3
+        "h": 4
       },
       "options": {
         "mode": "markdown",
-        "content": "### ACCESS360 \u2014 Live Fleet Health (Grafana Live via MQTT)\nStreaming straight from **HiveMQ** (`iot-hivemq:1883`) \u2014 no database in the path. Gateway `43250372`. Panels update as messages arrive over Grafana Live (WebSocket)."
+        "content": "### ACCESS360 \u2014 Live Fleet Health  \u00b7  Grafana Live via MQTT\nStreaming straight from **HiveMQ** (`iot-hivemq:1883`) \u2014 no database. Gateway `43250372`. **Velocity (IPS)** comes from `\u2026/derived/vib` (flattened from the on-demand full `dyn/vib/notify` by the Node-RED velocity normalizer), so IPS panels fill when a full reading is taken. Health panels stream continuously as sensors report."
       }
     },
     {
       "id": 2,
+      "type": "row",
+      "title": "Vibration velocity \u2014 IPS (in/s)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 3,
       "type": "timeseries",
-      "title": "BLE RSSI \u2014 live (dBm)",
-      "description": "Rssi field from rssi/notify, per message as it streams.",
+      "title": "Velocity RMS per axis \u2014 IPS",
+      "description": "vel_x_rms / vel_y_rms / vel_z_rms (in/s) from the velocity normalizer.",
       "datasource": {
         "type": "grafana-mqtt-datasource",
         "uid": "${DS_MQTT_UID}"
@@ -46,25 +59,255 @@
             "type": "grafana-mqtt-datasource",
             "uid": "${DS_MQTT_UID}"
           },
-          "topic": "access360/43250372/rssi/notify",
+          "topic": "access360/43250372/derived/vib",
           "refId": "A"
         }
       ],
       "gridPos": {
         "x": 0,
-        "y": 3,
-        "w": 12,
-        "h": 8
+        "y": 5,
+        "w": 16,
+        "h": 9
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "dBm",
+          "unit": "suffix: in/s",
           "custom": {
             "drawStyle": "line",
             "showPoints": "always",
             "pointSize": 6,
             "lineInterpolation": "linear",
-            "spanNulls": true
+            "spanNulls": true,
+            "lineWidth": 2
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Serial"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "viz": true,
+                  "legend": true,
+                  "tooltip": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ID"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "viz": true,
+                  "legend": true,
+                  "tooltip": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "x_rms"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "viz": true,
+                  "legend": true,
+                  "tooltip": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "y_rms"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "viz": true,
+                  "legend": true,
+                  "tooltip": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "z_rms"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "viz": true,
+                  "legend": true,
+                  "tooltip": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "vel_overall"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "viz": true,
+                  "legend": true,
+                  "tooltip": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "gauge",
+      "title": "Overall velocity \u2014 IPS (ISO zones)",
+      "description": "Vector sum of axis velocity RMS. Green/Amber/Orange/Red ~ ISO 10816 general-machine zones.",
+      "datasource": {
+        "type": "grafana-mqtt-datasource",
+        "uid": "${DS_MQTT_UID}"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-mqtt-datasource",
+            "uid": "${DS_MQTT_UID}"
+          },
+          "topic": "access360/43250372/derived/vib",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "x": 16,
+        "y": 5,
+        "w": 8,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: in/s",
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.157
+              },
+              {
+                "color": "orange",
+                "value": 0.275
+              },
+              {
+                "color": "red",
+                "value": 0.44
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^vel_overall$/",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      }
+    },
+    {
+      "id": 5,
+      "type": "row",
+      "title": "Overall acceleration (g)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Acceleration RMS per axis (g)",
+      "description": "Xrms / Yrms / Zrms (g) from the flat dyn/vib/notify/lite overall reading.",
+      "datasource": {
+        "type": "grafana-mqtt-datasource",
+        "uid": "${DS_MQTT_UID}"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-mqtt-datasource",
+            "uid": "${DS_MQTT_UID}"
+          },
+          "topic": "access360/43250372/dyn/vib/notify/lite",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 16,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: g",
+          "custom": {
+            "drawStyle": "line",
+            "showPoints": "always",
+            "pointSize": 6,
+            "lineInterpolation": "linear",
+            "spanNulls": true,
+            "lineWidth": 2
           }
         },
         "overrides": [
@@ -115,7 +358,249 @@
       }
     },
     {
-      "id": 3,
+      "id": 7,
+      "type": "stat",
+      "title": "Z-axis RMS (latest, g)",
+      "datasource": {
+        "type": "grafana-mqtt-datasource",
+        "uid": "${DS_MQTT_UID}"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-mqtt-datasource",
+            "uid": "${DS_MQTT_UID}"
+          },
+          "topic": "access360/43250372/dyn/vib/notify/lite",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "x": 16,
+        "y": 15,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: g",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.5
+              },
+              {
+                "color": "red",
+                "value": 1.0
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^Zrms$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value_and_name"
+      }
+    },
+    {
+      "id": 8,
+      "type": "row",
+      "title": "Fleet health \u2014 continuous stream",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "BLE RSSI by sensor \u2014 live",
+      "description": "One line per sensor (partitioned by Serial).",
+      "datasource": {
+        "type": "grafana-mqtt-datasource",
+        "uid": "${DS_MQTT_UID}"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-mqtt-datasource",
+            "uid": "${DS_MQTT_UID}"
+          },
+          "topic": "access360/43250372/rssi/notify",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dBm",
+          "custom": {
+            "drawStyle": "line",
+            "showPoints": "always",
+            "pointSize": 6,
+            "lineInterpolation": "linear",
+            "spanNulls": true,
+            "lineWidth": 2
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ID"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "viz": true,
+                  "legend": true,
+                  "tooltip": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "transformations": [
+        {
+          "id": "partitionByValues",
+          "options": {
+            "fields": [
+              "Serial"
+            ],
+            "keepFields": false,
+            "naming": {
+              "asLabels": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Temperature \u2014 live",
+      "description": "",
+      "datasource": {
+        "type": "grafana-mqtt-datasource",
+        "uid": "${DS_MQTT_UID}"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-mqtt-datasource",
+            "uid": "${DS_MQTT_UID}"
+          },
+          "topic": "access360/43250372/dyn/temp/notify",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "custom": {
+            "drawStyle": "line",
+            "showPoints": "always",
+            "pointSize": 6,
+            "lineInterpolation": "linear",
+            "spanNulls": true,
+            "lineWidth": 2
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Serial"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "viz": true,
+                  "legend": true,
+                  "tooltip": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ID"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "viz": true,
+                  "legend": true,
+                  "tooltip": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 11,
       "type": "table",
       "title": "Sensor heartbeats \u2014 live",
       "datasource": {
@@ -133,10 +618,10 @@
         }
       ],
       "gridPos": {
-        "x": 12,
-        "y": 3,
+        "x": 0,
+        "y": 32,
         "w": 12,
-        "h": 8
+        "h": 7
       },
       "fieldConfig": {
         "defaults": {
@@ -151,178 +636,11 @@
         "cellHeight": "sm",
         "footer": {
           "show": false
-        },
-        "sortBy": []
-      }
-    },
-    {
-      "id": 4,
-      "type": "timeseries",
-      "title": "Temperature \u2014 live (\u00b0C)",
-      "description": "",
-      "datasource": {
-        "type": "grafana-mqtt-datasource",
-        "uid": "${DS_MQTT_UID}"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-mqtt-datasource",
-            "uid": "${DS_MQTT_UID}"
-          },
-          "topic": "access360/43250372/dyn/temp/notify",
-          "refId": "A"
-        }
-      ],
-      "gridPos": {
-        "x": 0,
-        "y": 11,
-        "w": 12,
-        "h": 8
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "celsius",
-          "custom": {
-            "drawStyle": "line",
-            "showPoints": "always",
-            "pointSize": 6,
-            "lineInterpolation": "linear",
-            "spanNulls": true
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Serial"
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "viz": true,
-                  "legend": true,
-                  "tooltip": true
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "ID"
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "viz": true,
-                  "legend": true,
-                  "tooltip": true
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
         }
       }
     },
     {
-      "id": 5,
-      "type": "timeseries",
-      "title": "Overall vibration RMS \u2014 live (g)",
-      "description": "Xrms/Yrms/Zrms from dyn/vib/notify/lite (flat overall reading; published when a dynamic sensor takes a reading).",
-      "datasource": {
-        "type": "grafana-mqtt-datasource",
-        "uid": "${DS_MQTT_UID}"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-mqtt-datasource",
-            "uid": "${DS_MQTT_UID}"
-          },
-          "topic": "access360/43250372/dyn/vib/notify/lite",
-          "refId": "A"
-        }
-      ],
-      "gridPos": {
-        "x": 12,
-        "y": 11,
-        "w": 12,
-        "h": 8
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "accG",
-          "custom": {
-            "drawStyle": "line",
-            "showPoints": "always",
-            "pointSize": 6,
-            "lineInterpolation": "linear",
-            "spanNulls": true
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Serial"
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "viz": true,
-                  "legend": true,
-                  "tooltip": true
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "ID"
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "viz": true,
-                  "legend": true,
-                  "tooltip": true
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      }
-    },
-    {
-      "id": 6,
+      "id": 12,
       "type": "stat",
       "title": "Battery % (latest)",
       "datasource": {
@@ -340,10 +658,10 @@
         }
       ],
       "gridPos": {
-        "x": 0,
-        "y": 19,
-        "w": 8,
-        "h": 6
+        "x": 12,
+        "y": 32,
+        "w": 6,
+        "h": 7
       },
       "fieldConfig": {
         "defaults": {
@@ -381,13 +699,11 @@
         },
         "colorMode": "value",
         "graphMode": "area",
-        "textMode": "value_and_name",
-        "justifyMode": "auto",
-        "orientation": "auto"
+        "textMode": "value_and_name"
       }
     },
     {
-      "id": 7,
+      "id": 13,
       "type": "stat",
       "title": "RSSI (latest)",
       "datasource": {
@@ -405,10 +721,10 @@
         }
       ],
       "gridPos": {
-        "x": 8,
-        "y": 19,
-        "w": 8,
-        "h": 6
+        "x": 18,
+        "y": 32,
+        "w": 6,
+        "h": 7
       },
       "fieldConfig": {
         "defaults": {
@@ -446,13 +762,10 @@
         },
         "colorMode": "value",
         "graphMode": "area",
-        "textMode": "value_and_name",
-        "justifyMode": "auto",
-        "orientation": "auto"
+        "textMode": "value_and_name"
       }
     }
   ],
   "editable": true,
-  "fiscalYearStartMonth": 0,
   "graphTooltip": 0
 }
