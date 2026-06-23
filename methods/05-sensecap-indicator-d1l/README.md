@@ -74,7 +74,8 @@ Four screens with back/next navigation, mirroring the fleet-health metric set:
 
 ## How it gets its data
 
-- **Direct MQTT subscriptions** (esp-mqtt) to the health topics — no aggregator:
+- **Direct MQTT subscriptions** (esp-mqtt) to the health topics — straight from the
+  stack's broker, the device needs no middleman:
   - `access360/43250372/proc/checkin/notify` → presence / last-seen / online count
   - `access360/43250372/dyn/batt/notify` → battery %
   - `access360/43250372/rssi/notify` → RSSI
@@ -85,13 +86,16 @@ Four screens with back/next navigation, mirroring the fleet-health metric set:
   timer (the ESP32 needs SNTP time sync for absolute ages, or it can track relative
   ages from boot).
 - **4G usage:** the SIM figure (Hologram `cur_billing_data_used` vs `overagelimit`)
-  is **not** on MQTT. Either:
-  - (preferred) a tiny **Hologram-API poller** publishing a summary topic, deployed
-    as a **Docker container on `192.168.68.150`** (keeps the `HOLOGRAM_API_KEY`
-    server-side — never on the device), and the Indicator subscribes to that topic;
-    or
-  - the MQTT **byte-count proxy** (sum payload sizes per sensor) for a rough usage
-    estimate, computed on-device.
+  is **not** on MQTT — something must poll the Hologram API and republish it as
+  `access360/<gw>/sim/usage` (keeping `HOLOGRAM_API_KEY` server-side, never on the
+  device). Options:
+  - **(preferred — reuse the stack) a Node-RED flow in the existing `iot-nodered`**:
+    `inject` on a timer → `http request` (Node 20 `fetch`) to the Hologram API →
+    publish `sim/usage`. No extra container. The Indicator subscribes to that topic.
+  - **(alternative) the standalone `hologram-poller/` container** (Python + Docker) in
+    this folder — same result as a separate service, for deployments without Node-RED.
+  - **(on-device fallback) the MQTT byte-count proxy** (sum payload sizes per sensor)
+    for a rough usage estimate, computed on-device.
 
 Thresholds for coloring come straight from
 [`../../docs/fleet-health-metrics.md`](../../docs/fleet-health-metrics.md).
@@ -125,7 +129,8 @@ The UI is **hand-written LVGL 9 C** (a SquareLine export would drop into the sam
 | `main/bsp/display.c/.h` | esp_lcd RGB panel + FT5x06 touch + LVGL 9 init (display, indev, tick, lock). **Hardware constants marked `TODO: verify against D1L hardware`.** |
 | `main/ui/ui.h` | Clean UI API the firmware calls (`ui_set_broker_connected`, `ui_set_sensor_row`, …). |
 | `main/ui/ui.c` + `ui_screen_*.c` | Four LVGL 9 screens (Broker/Gateway, Sensors, Power & Signal, 4G/SIM) with Back/Next + swipe nav, LED/badge widgets, per-sensor rows, threshold colors. |
-| `hologram-poller/` | Server-side 4G-usage poller (Python + Dockerfile + compose) — publishes `access360/43250372/sim/usage`; runs on `.150`, holds `HOLOGRAM_API_KEY` (the device never does). |
+| `hologram-flow/` | **Preferred** 4G source: a Node-RED flow (in the existing `iot-nodered`) that polls Hologram and publishes `access360/43250372/sim/usage` — no extra container. **Live.** |
+| `hologram-poller/` | **Alternative** to the flow: a standalone poller (Python + Dockerfile + compose) publishing the same topic, holding `HOLOGRAM_API_KEY` server-side. For deployments without Node-RED. |
 
 ### Data the firmware subscribes to
 
@@ -155,12 +160,14 @@ idf.py -p /dev/ttyACM0 flash monitor
   (Wi-Fi SSID/PSK, broker host/port — defaulting to `192.168.68.150`/`1883`,
   gateway serial, online cutoff, SNTP server). They are stored in the build's
   `sdkconfig`, which is **gitignored** — no Wi-Fi or other secrets are committed.
-- **Hologram poller (on `.150`):**
-  ```bash
-  cd hologram-poller
-  cp .env.example .env        # put the real HOLOGRAM_API_KEY in .env (gitignored)
-  docker compose up -d --build
-  ```
+- **4G usage source** — either is fine; both publish `access360/43250372/sim/usage`:
+  - **Preferred — Node-RED flow in the existing `iot-nodered`** (no extra container).
+  - **Alternative — the standalone poller container:**
+    ```bash
+    cd hologram-poller
+    cp .env.example .env      # put the real HOLOGRAM_API_KEY in .env (gitignored)
+    docker compose up -d --build
+    ```
 - Build artifacts (`build/`, `sdkconfig`, `managed_components/`) are already in
   the repo-root `.gitignore`.
 

@@ -9,59 +9,55 @@ sensors online, *time since last activity*, 4G usage, throughput, per-sensor bat
 temperature) with a **`Sensor` dropdown** to overlay all sensors (compare amplitude)
 or drill into one.
 
-> **Why not "Grafana straight from the broker"?** That was the original idea, but a
-> broker-only board **cannot** show history, "time since last activity", or stored
-> readings — Grafana Live is ephemeral (no backfill) and the fleet is bursty. So the
-> real dashboard reads from where the data is durably stored: **InfluxDB 3**, which
-> the stack's **Node-RED ingestion** fills from the MQTT stream (readings *and*
-> derived fleet-health series). This is exactly the gap the stack closes — the broker
-> alone can't give you trends.
+> **Why not "Grafana straight from the broker"?** A broker-only board **cannot** show
+> history, "time since last activity", or stored readings — Grafana Live is ephemeral
+> (no backfill) and the fleet is bursty. So the dashboard reads from where data is
+> durably stored: **InfluxDB 3** (sensor readings) + **Prometheus** (System Health
+> KPIs).
 
-> **Direction (Node-RED-only stack).** In the consolidated stack, **Node-RED is the
-> only ingestion glue**: it writes both the sensor readings and the fleet-health
-> series to InfluxDB 3, and Grafana reads everything from InfluxDB via SQL. A
-> Prometheus backend is **optional** and can be added later if wanted.
-> **Current state:** the committed dashboard + `deploy.sh` still wire the **System
-> Health** KPIs to **Prometheus** (fed by the legacy `spectra-ingester`, now being
-> retired) alongside the InfluxDB readings — migrating those KPIs to InfluxDB
-> (written by Node-RED) is the open work item for this method.
+> **Data sources — entirely from the IoT stack; the `spectra-io` ingester is NOT used
+> or touched.**
+> - **Sensor Readings → InfluxDB 3 `ctc43250372`** — vibration written by the
+>   "CTC Vibration Observability" Node-RED flow; temperature written by the
+>   [`stack-metrics/`](stack-metrics/) flow. (`spectra-ingester` / its `spectra`
+>   database belong to the separate `spectra-io` project — never touched.)
+> - **System Health KPIs → `iot-prometheus`** (the stack's own Prometheus, host `:9091`),
+>   which scrapes a Node-RED `/metrics` exporter that computes the KPIs from the MQTT
+>   stream — see [`stack-metrics/`](stack-metrics/). (`spectra-prometheus` stays on
+>   `:9090` for spectra-io, untouched.)
+> - **4G/SIM → Node-RED Hologram flow** publishing `access360/<gw>/sim/usage`.
 
 ![Fleet Health & Readings — top (System Health)](docs-img/fleet-health-readings-top.png)
 ![Fleet Health & Readings — bottom (Sensor Readings)](docs-img/fleet-health-readings-bottom.png)
 
 ## How it works
 
-**Target (Node-RED-only stack):**
-
 ```
-HiveMQ (…:1883) ─► Node-RED ─► InfluxDB 3 (spectra) ─ SQL ─┬─► System Health KPIs (top)
-                  (ingest +                                 └─► Sensor Readings (bottom)
-                   health)
+HiveMQ ─► iot-nodered flows ─┬─ GET /metrics ─► iot-prometheus (:9091) ─ PromQL ─► System Health (top)
+                             ├─ MQTT → InfluxDB ctc43250372 ─ SQL ──────────────► Sensor Readings (bottom)
+                             └─ Hologram flow → sim/usage  (4G gauges, via /metrics)
 ```
 
-- **System Health (top):** fleet-health series Node-RED derives from the MQTT
-  stream and writes to InfluxDB (`sensor_health`, `gateway_events`, plus SIM usage
-  from the Hologram poller) — broker up, sensors online, last-seen age, battery,
-  RSSI, message/error rates, 4G usage. Definitions/thresholds in
-  [`../../docs/fleet-health-metrics.md`](../../docs/fleet-health-metrics.md).
-- **Sensor Readings (bottom):** an **InfluxDB 3** data source (SQL/FlightSQL) over the
-  `spectra` database. The **`$sensor`** template variable feeds
+- **Sensor Readings (bottom):** an **InfluxDB 3** data source (SQL/FlightSQL) over
+  **`ctc43250372`**. The **`$sensor`** template variable feeds
   `WHERE sensor_id IN (${sensor:singlequote})`; the **Z axis** is the cross-sensor
   comparison metric (common to single-axis WS200 and triaxial WS300).
+- **System Health (top):** Prometheus KPIs from **`iot-prometheus`**, computed by the
+  Node-RED `/metrics` exporter from the MQTT stream (broker up, sensors online,
+  last-seen, battery, RSSI, message/error rates, 4G). Definitions/thresholds in
+  [`../../docs/fleet-health-metrics.md`](../../docs/fleet-health-metrics.md).
 
-> **Current committed wiring** (pending the migration above): the System Health
-> KPIs read **Prometheus** (`ingester_mqtt_connected`,
-> `ingester_sensor_last_seen_timestamp_seconds`, `ingester_sensor_battery_percent`,
-> `hologram_sim_*`, message/point/error rates) exposed by the legacy
-> `spectra-ingester`; the Sensor Readings already read InfluxDB. Both data-source
-> UIDs are templated in the dashboard JSON.
+> **Live (2026-06-23) — the dashboard is fed entirely by the IoT stack, no ingester:**
+> the InfluxDB datasource is re-pointed to `ctc43250372`; temperature is ingested by the
+> [`stack-metrics/`](stack-metrics/) flow; System Health is re-pointed to `iot-prometheus`
+> (Node-RED exporter); 4G comes from the
+> [Hologram flow](../05-sensecap-indicator-d1l/hologram-flow/).
+> `spectra-ingester` / `spectra-prometheus` are untouched.
 
-> **Two ingestion gotchas the dashboard exposed** (the stack's Node-RED ingestion
-> must handle both): `dyn/temp/notify` was being **dropped** (0 temperature rows in
-> InfluxDB), and dynamic-sensor readings were stamped with the sensors' **stuck RTC**
-> (~5 months behind). The ingestion must **store temperature** and **clamp skewed
-> payload timestamps to ingest time** so readings land "now" and the temperature
-> panel populates. (See the clock-skew note in
+> **Two ingestion gotchas the dashboard exposed:** `dyn/temp/notify` must be
+> **stored** (it was being dropped → 0 temperature rows) and dynamic-sensor readings
+> carry the BLE sensors' **stuck RTC** (~5 months behind), so the ingestion must
+> **clamp skewed payload timestamps to ingest time**. (See the clock-skew note in
 > [`../../docs/sensors-and-gateways.md`](../../docs/sensors-and-gateways.md).)
 
 ## Prerequisites
@@ -71,9 +67,9 @@ It needs:
 
 - A Grafana **service-account token** (role Admin/Editor) and an **InfluxDB 3 token**
   (`INFLUX_TOKEN`) for `deploy/deploy.sh`.
-- `iot-grafana` shares the stack's Docker network with `iot-hivemq` and
-  `iot-influxdb3` (and, until the KPI migration, the legacy Prometheus that backs the
-  System Health strip).
+- `iot-grafana` reads InfluxDB 3 (`ctc43250372`) and **`iot-prometheus`** (host `:9091`);
+  both are reachable from Grafana. (`spectra-prometheus` on `:9090` is spectra-io's and
+  no longer used by this dashboard.)
 
 ## What's in this folder (Phase 2 — delivered)
 
@@ -82,6 +78,7 @@ It needs:
 | `dashboards/fleet-health-readings.json` | **The featured dashboard** (15 panels). DS uids templated `${DS_PROM_UID}` / `${DS_INFLUX_UID}`. |
 | `deploy/gen_readings_dashboard.py` | Generator for the featured dashboard (documents every KPI/reading query). |
 | `deploy/deploy.sh` | Idempotent deploy into iot-grafana: upserts the InfluxDB data source and imports the dashboard. |
+| [`stack-metrics/`](stack-metrics/) | The IoT-stack System Health exporter + temperature ingest (Node-RED flow) and **`iot-prometheus`** (config/compose) — what makes the dashboard ingester-free. |
 | `docs-img/fleet-health-readings-top.png` / `-bottom.png` | Screenshots of the dashboard. |
 
 ### Deploy
@@ -128,9 +125,10 @@ sensor; pick one to drill in.
 
 ## Still to do
 
-- **Migrate the System Health KPIs from Prometheus to InfluxDB** (written by
-  Node-RED) per the Node-RED-only direction above, after which the optional
-  Prometheus backend can be dropped.
-- Capture vibration/temperature over a longer window for a fuller trend (currently a
-  handful of seeded points).
+- ✅ **Readings datasource → `ctc43250372`** (done).
+- ✅ **Temperature ingested** by the [`stack-metrics/`](stack-metrics/) flow (write path
+  verified; real WS100 temperature accrues as `proc/reading`/`dyn/temp` arrive).
+- ✅ **System Health → `iot-prometheus`** (Node-RED exporter). The dashboard no longer
+  depends on `spectra-io`'s ingester.
+- Capture vibration/temperature over a longer window for a fuller trend.
 - Optional: a `gateway_events` errors/`ap` panel; an InfluxDB "last-seen age" table.

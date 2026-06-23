@@ -1,0 +1,47 @@
+# Fleet-health + SIM alert rules for iot-prometheus. Metric names match the Node-RED
+# /metrics exporter (ingester_* / hologram_sim_*).
+groups:
+  - name: access360-fleet
+    rules:
+      - alert: BrokerDown
+        expr: max(ingester_mqtt_connected) < 1
+        for: 2m
+        labels: {severity: critical}
+        annotations: {summary: "Node-RED is not connected to the MQTT broker"}
+      - alert: IngestErrors
+        expr: sum(rate(ingester_errors_total[5m])) > 0
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: "Ingest/parse errors are occurring"}
+      - alert: SensorSilent
+        expr: (time() - ingester_sensor_last_seen_timestamp_seconds) > 46800
+        for: 10m
+        labels: {severity: warning}
+        annotations: {summary: "Sensor {{ $labels.sensor_id }} (gw {{ $labels.gateway_sn }}) silent > 13h"}
+      - alert: SensorLowBattery
+        expr: ingester_sensor_battery_percent < 20
+        for: 30m
+        labels: {severity: warning}
+        annotations: {summary: "Sensor {{ $labels.sensor_id }} battery {{ $value }}%"}
+      - alert: SensorWeakSignal
+        expr: ingester_sensor_rssi_dbm < -75
+        for: 30m
+        labels: {severity: warning}
+        annotations: {summary: "Sensor {{ $labels.sensor_id }} RSSI {{ $value }} dBm (weak)"}
+  - name: access360-sim
+    rules:
+      - alert: HologramSimDataHigh
+        expr: (hologram_sim_data_used_bytes / hologram_sim_data_limit_bytes > 0.8) and (hologram_sim_data_limit_bytes > 0)
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: "SIM {{ $labels.device }} at {{ $value | humanizePercentage }} of its data limit"}
+      - alert: HologramSimPaused
+        expr: hologram_sim_live == 0 and hologram_sim_data_used_bytes > 0
+        for: 5m
+        labels: {severity: critical}
+        annotations: {summary: "SIM {{ $labels.device }} is PAUSED — gateway likely offline"}
+      - alert: HologramPollFailing
+        expr: time() - hologram_poll_last_success_timestamp_seconds > 1800
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: "No Hologram poll (sim/usage) in over 30 minutes"}

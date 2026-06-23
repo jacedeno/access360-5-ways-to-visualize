@@ -3,15 +3,12 @@
 The live fleet identifiers, so a visualization can pre-populate device lists,
 filters, and per-sensor tiles instead of waiting to discover them.
 
-> **Source of truth.** The authoritative, always-current backend model lives in the
-> **`spectra-io`** repo (`~/repos/spectra-io`) — the Spectra ingester encodes the
-> real parsing/classification rules and the CTC vendor docs. This file is a
-> **self-contained snapshot** of what a visualization needs; when in doubt, or when
-> the fleet changes, reconcile against:
-> - `spectra-io/services/ingester/src/ingester/topics.py` — `model_from_serial()`
-> - `spectra-io/services/ingester/src/ingester/parsers.py` — per-channel model (WS100 override)
-> - `spectra-io/docs/vendor/ctc/sensor-specs.md` — WS100/WS200/WS300 specs
-> - `spectra-io/docs/vendor/ctc/mqtt-topics.md` — topic/payload reference
+> **Source of truth.** This file is **self-contained** — it is the reference the
+> stack uses, and the channel-first classification rule below is what the stack's
+> **Node-RED ingestion** applies when it tags points. The underlying facts come from
+> **CTC's vendor docs** (WS100/WS200/WS300 specs + the ConnectBridge MQTT-topics
+> manual) cross-checked against a **live broker capture**; reconcile against those
+> and a fresh capture whenever the fleet changes.
 
 ---
 
@@ -32,7 +29,7 @@ ACCESS360 ConnectBridge services up to **10 BLE dynamic sensors**.
 ## Sensors (live, gateway `43250372`)
 
 Confirmed by a **live broker capture (2026-06-22)** and cross-checked against the
-`spectra-io` classification logic. The desk fleet is **5 sensors: 2× WS100 +
+channel-first classification rule below. The desk fleet is **5 sensors: 2× WS100 +
 2× WS200 + 1× WS300**.
 
 | Sensor serial (`sensor_id`) | Model | Kind | Axes | Confirmed by |
@@ -60,9 +57,9 @@ Sensor `22255728` (WS300) is the one with a verified live full-waveform capture
 
 ## Model conventions (how to label a sensor)
 
-Model derivation is **channel-first, prefix-second** — matching
-`spectra-io`'s parser (`parsers.py` overrides the model to `WS100` whenever the
-channel is `proc/reading/notify`, regardless of serial):
+Model derivation is **channel-first, prefix-second** — the stack's Node-RED
+ingestion overrides the model to `WS100` whenever the channel is
+`proc/reading/notify`, regardless of serial:
 
 | Signal | Model | Kind |
 |---|---|---|
@@ -85,7 +82,7 @@ function modelFor(serial, channel):
 > WS200 in this fleet, so the serial alone is ambiguous. `proc/reading/notify`
 > (overall RMS/Peak/Pk-Pk + Temp + Batt, no waveform) is the reliable WS100 tell.
 
-### Model behavior at a glance (from `spectra-io/docs/vendor/ctc/sensor-specs.md`)
+### Model behavior at a glance (per CTC's WS-series sensor specs)
 
 | | WS100 | WS200 | WS300 |
 |---|---|---|---|

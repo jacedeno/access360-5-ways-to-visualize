@@ -1,13 +1,16 @@
-# Reference — MQTT → InfluxDB 3 Mapping
+# MQTT → InfluxDB 3 Mapping (the stack's history schema)
 
-How the **platform** maps the MQTT payloads to InfluxDB 3 measurements. The five
-methods in this repo subscribe to MQTT **directly** and do **not** need InfluxDB —
-this doc is reference only, so the field/tag naming stays consistent if a method
-later wants to read history or write its own series.
+How the stack's **Node-RED ingestion** maps the MQTT payloads to InfluxDB 3
+measurements. This is the schema behind the durable history — the lightweight
+methods can still read MQTT live, but anything that needs **trends, backfill, or
+"time since last seen"** reads these measurements, and Node-RED writes them.
 
 - **Query rule:** InfluxDB 3 is queried with **SQL via Flight SQL** — never Flux.
-- **Databases:** `spectra` (consolidated, multi-gateway, `gateway_sn`-tagged) is
-  the ingester target; `ctc43250372` is the current per-gateway DB.
+- **Database (this repo's 5-ways stack):** **`ctc43250372`** — the per-gateway database
+  the Node-RED ingestion flow writes to, and what Method 3's dashboard reads.
+  > The `spectra` database (consolidated, multi-gateway) belongs to the separate
+  > **`spectra-io`** project's ingester — out of scope here, never written or modified.
+  > Both use the identical measurement/tag schema below.
 - **Mandatory tags on every point:** `gateway_sn`, `sensor_id`, `site`
   (`Cement_Plant`), plus a per-measurement discriminator (`model` / `metric` /
   `data_type`).
@@ -23,10 +26,8 @@ later wants to read history or write its own series.
 | `sensor_health` | `dyn/batt/notify`, `proc/checkin/notify`, `rssi/notify` | Battery, RSSI, heartbeat |
 | `gateway_events` | `error/notify`, `status/notify` | Gateway error/status events |
 
-> Note: the legacy Node-RED flow routes full `dyn/vib/notify` into
-> `vibration_fft`; the consolidated ingester writes scalar fields into `vibration`
-> with a `has_waveform` flag and keeps spectral data in `vibration_fft`. Either
-> way the tag set is identical.
+> Note: Node-RED writes scalar fields into `vibration` with a `has_waveform` flag
+> and keeps spectral data in `vibration_fft`. The tag set is identical across both.
 
 ---
 
@@ -91,7 +92,7 @@ sensor_health,gateway_sn=43250372,metric=rssi,sensor_id=11252280,site=Cement_Pla
 
 CTC `Time` is `"yyyy-mm-dd hh:MM"` (or with seconds on `rssi/notify`), treated as
 **UTC** and converted to epoch nanoseconds for the line-protocol timestamp. If a
-payload has no time, the platform uses server ingest time.
+payload has no time, Node-RED uses server ingest time.
 
 ---
 
@@ -100,7 +101,7 @@ payload has no time, the platform uses server ingest time.
 InfluxDB 3 Core line-protocol write:
 
 ```
-POST http://192.168.68.150:8181/api/v3/write_lp?db=spectra&precision=nanosecond
+POST http://192.168.68.150:8181/api/v3/write_lp?db=ctc43250372&precision=nanosecond
 Content-Type: text/plain
 Authorization: Bearer <INFLUX_TOKEN>   # secret — env var, never commit
 ```

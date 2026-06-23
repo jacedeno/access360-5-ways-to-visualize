@@ -1,0 +1,150 @@
+[
+  {
+    "id": "sm_tab",
+    "type": "tab",
+    "label": "ACCESS360 \u2014 Stack metrics + temp",
+    "disabled": false,
+    "info": "System Health exporter (/metrics, scraped by iot-prometheus) + temperature ingest into ctc43250372. Set INFLUX_TOKEN (+ INFLUX_DB/URL, GATEWAY_SN) as env vars on this tab."
+  },
+  {
+    "id": "sm_hivemq",
+    "type": "mqtt-broker",
+    "name": "iot-hivemq",
+    "broker": "iot-hivemq",
+    "port": "1883",
+    "clientid": "nodered-stackmetrics",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "5",
+    "keepalive": "60",
+    "cleansession": true
+  },
+  {
+    "id": "sm_mqtt",
+    "type": "mqtt in",
+    "z": "sm_tab",
+    "name": "access360/+/#",
+    "topic": "access360/+/#",
+    "qos": "1",
+    "datatype": "auto-detect",
+    "broker": "sm_hivemq",
+    "x": 150,
+    "y": 120,
+    "wires": [
+      [
+        "sm_proc"
+      ]
+    ]
+  },
+  {
+    "id": "sm_proc",
+    "type": "function",
+    "z": "sm_tab",
+    "name": "state + temp write",
+    "func": "\n// Update System Health state for /metrics, and (only) write temperature to InfluxDB.\nconst m = flow.get('m') || {\n    mqtt_connected: 0, messages_total: 0, errors_total: 0,\n    points_written_total: 0, sensors: {}, sim: {}\n};\nm.messages_total++;\n\nconst parts = (msg.topic || '').split('/');     // access360/<gw>/<channel...>\nconst gw = parts[1] || env.get('GATEWAY_SN') || '43250372';\nconst channel = parts.slice(2).join('/');\n\nlet p = msg.payload;\nif (Buffer.isBuffer(p)) p = p.toString();\nif (typeof p === 'string') { try { p = JSON.parse(p); } catch (e) { m.errors_total++; flow.set('m', m); return null; } }\nconst r = (p && p.Reading) ? p.Reading : (p || {});\n\nif (channel.indexOf('error/notify') === 0) m.errors_total++;\n\n// Hologram SIM usage (published by the Hologram flow). Accept poller schema or raw.\nif (channel === 'sim/usage') {\n    const dev = String(r.device || gw);\n    const e = {};\n    if (r.used_mb != null) e.used = Number(r.used_mb) * 1000000;\n    else if (r.cur_billing_data_used != null) e.used = Number(r.cur_billing_data_used);\n    else if (r.used != null) e.used = Number(r.used);\n    if (r.limit_mb != null) e.limit = Number(r.limit_mb) * 1000000;\n    else if (r.overagelimit != null) e.limit = Number(r.overagelimit);\n    else if (r.limit != null) e.limit = Number(r.limit);\n    if (r.paused !== undefined) e.live = r.paused ? 0 : 1;\n    else if (r.state !== undefined) e.live = (String(r.state).toLowerCase() === 'live') ? 1 : 0;\n    m.sim[dev] = e;\n    m.hologram_poll_last_success = Math.floor(Date.now() / 1000);\n    flow.set('m', m);\n    return null;\n}\n\nconst serial = (r.Serial != null) ? String(r.Serial) : null;\nconst nowS = Math.floor(Date.now() / 1000);     // broker arrival time (RTC is skewed)\nif (serial) {\n    const s = m.sensors[serial] || {};\n    s.last_seen_s = nowS;\n    s.gateway_sn = gw;\n    const batt = (r.Batt != null) ? r.Batt : (r.Battery != null ? r.Battery : undefined);\n    if (batt !== undefined) s.battery = Number(batt);\n    if (r.Rssi != null) s.rssi = Number(r.Rssi);\n    m.sensors[serial] = s;\n}\n\n// Count points the stack persists (the CTC flow writes these to ctc43250372) \u2014 a\n// proxy for write throughput so the \"Points written/s\" panel is meaningful.\nconst writeCh = ['dyn/vib/notify', 'dyn/vib/notify/lite', 'proc/reading/notify',\n                 'dyn/batt/notify', 'rssi/notify', 'proc/checkin/notify', 'dyn/temp/notify'];\nif (writeCh.some(c => channel.indexOf(c) === 0)) m.points_written_total++;\nflow.set('m', m);\n\n// Temperature is the ONLY measurement we write (CTC flow doesn't store it).\nlet temp = null;\nif ((channel.indexOf('dyn/temp/notify') === 0 || channel.indexOf('proc/reading/notify') === 0)\n    && serial && r.Temp != null) temp = Number(r.Temp);\nif (temp === null) return null;\n\nfunction esc(v) { return String(v).replace(/[ ,=]/g, '\\\\$&'); }\nconst ts = Date.now() * 1000000;   // clamp to ingest time (ns, ms precision)\nconst lp = 'sensor_health,gateway_sn=' + esc(gw) + ',sensor_id=' + esc(serial) +\n           ',site=Cement_Plant,metric=temperature temperature_c=' + temp + ' ' + ts;\n\nconst base = env.get('INFLUX_URL') || 'http://iot-influxdb3:8181';\nconst db = env.get('INFLUX_DB') || 'ctc43250372';\nconst token = env.get('INFLUX_TOKEN') || '';\nmsg.method = 'POST';\nmsg.url = base + '/api/v3/write_lp?db=' + encodeURIComponent(db) + '&precision=nanosecond';\nmsg.headers = { 'Content-Type': 'text/plain' };\nif (token) msg.headers['Authorization'] = 'Bearer ' + token;\nmsg.payload = lp;\nreturn msg;\n",
+    "outputs": 1,
+    "x": 380,
+    "y": 120,
+    "wires": [
+      [
+        "sm_http"
+      ]
+    ]
+  },
+  {
+    "id": "sm_http",
+    "type": "http request",
+    "z": "sm_tab",
+    "name": "InfluxDB temp write",
+    "method": "use",
+    "ret": "txt",
+    "url": "",
+    "persist": true,
+    "x": 620,
+    "y": 120,
+    "wires": [
+      [
+        "sm_res"
+      ]
+    ]
+  },
+  {
+    "id": "sm_res",
+    "type": "function",
+    "z": "sm_tab",
+    "name": "write result",
+    "func": "\nconst code = msg.statusCode;\nif (code !== 200 && code !== 204) {\n    const m = flow.get('m'); if (m) { m.errors_total++; flow.set('m', m); }\n    node.warn('InfluxDB temp write failed: ' + code);\n}\nreturn null;\n",
+    "outputs": 0,
+    "x": 850,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "sm_status",
+    "type": "status",
+    "z": "sm_tab",
+    "name": "mqtt status",
+    "scope": [
+      "sm_mqtt"
+    ],
+    "x": 150,
+    "y": 200,
+    "wires": [
+      [
+        "sm_fnstatus"
+      ]
+    ]
+  },
+  {
+    "id": "sm_fnstatus",
+    "type": "function",
+    "z": "sm_tab",
+    "name": "set mqtt_connected",
+    "func": "\nconst m = flow.get('m') || {\n    mqtt_connected: 0, messages_total: 0, errors_total: 0,\n    points_written_total: 0, sensors: {}, sim: {}\n};\nconst txt = (msg.status && msg.status.text || '').toLowerCase();\nm.mqtt_connected = txt.indexOf('connected') >= 0 ? 1 : 0;\nflow.set('m', m);\nreturn null;\n",
+    "outputs": 0,
+    "x": 400,
+    "y": 200,
+    "wires": []
+  },
+  {
+    "id": "sm_httpin",
+    "type": "http in",
+    "z": "sm_tab",
+    "name": "GET /metrics",
+    "url": "/metrics",
+    "method": "get",
+    "x": 160,
+    "y": 300,
+    "wires": [
+      [
+        "sm_fnmetrics"
+      ]
+    ]
+  },
+  {
+    "id": "sm_fnmetrics",
+    "type": "function",
+    "z": "sm_tab",
+    "name": "render exposition",
+    "func": "\nconst m = flow.get('m') || { sensors: {}, sim: {} };\nconst L = [];\nL.push('# HELP ingester_mqtt_connected Node-RED broker connection (1=up).');\nL.push('# TYPE ingester_mqtt_connected gauge');\nL.push('ingester_mqtt_connected ' + (m.mqtt_connected || 0));\nL.push('# TYPE ingester_messages_total counter');\nL.push('ingester_messages_total ' + (m.messages_total || 0));\nL.push('# TYPE ingester_errors_total counter');\nL.push('ingester_errors_total ' + (m.errors_total || 0));\nL.push('# TYPE ingester_points_written_total counter');\nL.push('ingester_points_written_total ' + (m.points_written_total || 0));\n\nconst sensors = m.sensors || {};\nconst ids = Object.keys(sensors);\nconst lbl = (id) => '{sensor_id=\"' + id + '\",gateway_sn=\"' + (sensors[id].gateway_sn || '') + '\"}';\nL.push('# TYPE ingester_sensor_last_seen_timestamp_seconds gauge');\nfor (const id of ids) if (sensors[id].last_seen_s != null) L.push('ingester_sensor_last_seen_timestamp_seconds' + lbl(id) + ' ' + sensors[id].last_seen_s);\nL.push('# TYPE ingester_sensor_battery_percent gauge');\nfor (const id of ids) if (sensors[id].battery != null) L.push('ingester_sensor_battery_percent' + lbl(id) + ' ' + sensors[id].battery);\nL.push('# TYPE ingester_sensor_rssi_dbm gauge');\nfor (const id of ids) if (sensors[id].rssi != null) L.push('ingester_sensor_rssi_dbm' + lbl(id) + ' ' + sensors[id].rssi);\n\nconst sim = m.sim || {};\nconst sims = Object.keys(sim);\nconst dl = (id) => '{device=\"' + id + '\"}';\nL.push('# TYPE hologram_sim_data_used_bytes gauge');\nfor (const id of sims) L.push('hologram_sim_data_used_bytes' + dl(id) + ' ' + (sim[id].used || 0));\nL.push('# TYPE hologram_sim_data_limit_bytes gauge');\nfor (const id of sims) L.push('hologram_sim_data_limit_bytes' + dl(id) + ' ' + (sim[id].limit || 0));\nL.push('# TYPE hologram_sim_live gauge');\nfor (const id of sims) if (sim[id].live != null) L.push('hologram_sim_live' + dl(id) + ' ' + sim[id].live);\nif (m.hologram_poll_last_success != null) {\n    L.push('# TYPE hologram_poll_last_success_timestamp_seconds gauge');\n    L.push('hologram_poll_last_success_timestamp_seconds ' + m.hologram_poll_last_success);\n}\nmsg.payload = L.join('\\n') + '\\n';\nmsg.statusCode = 200;\nmsg.headers = { 'Content-Type': 'text/plain; version=0.0.4' };\nreturn msg;\n",
+    "outputs": 1,
+    "x": 410,
+    "y": 300,
+    "wires": [
+      [
+        "sm_httpres"
+      ]
+    ]
+  },
+  {
+    "id": "sm_httpres",
+    "type": "http response",
+    "z": "sm_tab",
+    "name": "",
+    "statusCode": "",
+    "headers": {},
+    "x": 650,
+    "y": 300,
+    "wires": []
+  }
+]

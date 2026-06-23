@@ -14,7 +14,8 @@ machine over time. This is the one that actually *shows the vibration*.
   amplitude as color — so emerging fault frequencies (imbalance, bearing defects,
   looseness) become visible as they develop.
 - Also show a single-reading **FFT spectrum** (amplitude vs frequency) per axis.
-- All fed **directly from MQTT** — no aggregator service.
+- All fed **directly from the broker's live MQTT stream** — the FFT runs in the
+  stack's Node-RED, no separate service.
 
 ## Why Node-RED
 

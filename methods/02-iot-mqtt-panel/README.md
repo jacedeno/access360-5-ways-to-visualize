@@ -4,8 +4,9 @@
 
 A pocket dashboard. [IoT MQTT Panel](https://snrlab.in/iot/iot-mqtt-panel-user-guide/)
 is an Android app that binds UI widgets (gauges, values, LED indicators, line
-graphs) directly to MQTT topics. Point it at the broker and you get a glanceable
-fleet-health view on your phone — no server, no backend.
+graphs) directly to MQTT topics. Point it at the stack's broker and you get a
+glanceable fleet-health view on your phone — no app server, the phone *is* the
+MQTT client.
 
 ## Purpose
 

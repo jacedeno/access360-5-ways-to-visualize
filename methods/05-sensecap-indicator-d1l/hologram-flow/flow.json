@@ -1,0 +1,117 @@
+[
+  {
+    "id": "holo_tab",
+    "type": "tab",
+    "label": "ACCESS360 \u2014 Hologram 4G poll",
+    "disabled": false,
+    "info": "Polls the gateway SIM's Hologram usage and publishes access360/<gw>/sim/usage (retained). Replaces the standalone hologram-poller container. Set HOLOGRAM_API_KEY (and optionally HOLOGRAM_DEVICE_ID/GATEWAY_SN/POLL_INTERVAL_S) as env vars on this tab."
+  },
+  {
+    "id": "holo_hivemq",
+    "type": "mqtt-broker",
+    "name": "iot-hivemq",
+    "broker": "iot-hivemq",
+    "port": "1883",
+    "clientid": "nodered-hologram",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "5",
+    "keepalive": "60",
+    "cleansession": true
+  },
+  {
+    "id": "holo_inject",
+    "type": "inject",
+    "z": "holo_tab",
+    "name": "every 600s + at start",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "600",
+    "once": true,
+    "onceDelay": "5",
+    "payloadType": "date",
+    "x": 170,
+    "y": 120,
+    "wires": [
+      [
+        "holo_req"
+      ]
+    ]
+  },
+  {
+    "id": "holo_req",
+    "type": "function",
+    "z": "holo_tab",
+    "name": "build request",
+    "func": "\n// Build the Hologram device-detail request (direct by id; the list endpoint is\n// empty for org-scoped accounts).\nconst key = env.get('HOLOGRAM_API_KEY');\nif (!key) { node.warn('HOLOGRAM_API_KEY not set on the flow'); return null; }\nconst dev = env.get('HOLOGRAM_DEVICE_ID') || '4435961';\nmsg.method = 'GET';\nmsg.url = 'https://dashboard.hologram.io/api/1/devices/' + encodeURIComponent(dev)\n        + '?apikey=' + encodeURIComponent(key);\nmsg.headers = { 'Accept': 'application/json' };\nreturn msg;\n",
+    "outputs": 1,
+    "x": 380,
+    "y": 120,
+    "wires": [
+      [
+        "holo_http"
+      ]
+    ]
+  },
+  {
+    "id": "holo_http",
+    "type": "http request",
+    "z": "holo_tab",
+    "name": "Hologram device",
+    "method": "use",
+    "ret": "obj",
+    "url": "",
+    "persist": false,
+    "x": 600,
+    "y": 120,
+    "wires": [
+      [
+        "holo_parse"
+      ]
+    ]
+  },
+  {
+    "id": "holo_parse",
+    "type": "function",
+    "z": "holo_tab",
+    "name": "\u2192 sim/usage",
+    "func": "\n// Parse the Hologram device record -> compact sim/usage summary (same schema as the\n// standalone poller, so Method 5's firmware is unchanged).\nif (msg.statusCode && msg.statusCode !== 200) {\n    node.warn('Hologram HTTP ' + msg.statusCode);\n    return null;\n}\nconst d = (msg.payload && msg.payload.data) ? msg.payload.data : {};\nconst cl = (d.links && Array.isArray(d.links.cellular)) ? d.links.cellular : [];\nconst cell = cl[0] || {};\n\nconst usedBytes = Number(cell.cur_billing_data_used || 0);\nconst limitBytes = Number(cell.overagelimit || 0);\nconst usedMb = Math.round(usedBytes / 1000000);\nconst limitMb = Math.round(limitBytes / 1000000);\nconst pct = limitMb > 0 ? Math.round((100 * usedMb) / limitMb) : 0;\n\nconst state = String(cell.state || '').toLowerCase();\nconst paused = state ? (state !== 'live') : false;\n\nlet lastAge = -1;\nconst last = cell.lastsession || cell.last_connect_time;\nif (last) {\n    let ts = NaN;\n    if (/^\\d+$/.test(String(last))) ts = Number(last);\n    else { const t = Date.parse(String(last).replace('Z', '+00:00')); if (!isNaN(t)) ts = Math.floor(t / 1000); }\n    if (!isNaN(ts)) lastAge = Math.max(0, Math.floor(Date.now() / 1000) - ts);\n}\n\nconst gw = env.get('GATEWAY_SN') || '43250372';\nmsg.topic = 'access360/' + gw + '/sim/usage';\nmsg.payload = JSON.stringify({\n    device: d.id || env.get('HOLOGRAM_DEVICE_ID') || '4435961',\n    used_mb: usedMb,\n    limit_mb: limitMb,\n    pct: pct,\n    paused: paused,\n    last_connect_age_s: lastAge\n});\nreturn msg;\n",
+    "outputs": 1,
+    "x": 800,
+    "y": 120,
+    "wires": [
+      [
+        "holo_out",
+        "holo_dbg"
+      ]
+    ]
+  },
+  {
+    "id": "holo_out",
+    "type": "mqtt out",
+    "z": "holo_tab",
+    "name": "sim/usage (retain)",
+    "topic": "",
+    "qos": "1",
+    "retain": "true",
+    "broker": "holo_hivemq",
+    "x": 1010,
+    "y": 100,
+    "wires": []
+  },
+  {
+    "id": "holo_dbg",
+    "type": "debug",
+    "z": "holo_tab",
+    "name": "sim/usage",
+    "active": false,
+    "tosidebar": true,
+    "complete": "payload",
+    "x": 1000,
+    "y": 150,
+    "wires": []
+  }
+]

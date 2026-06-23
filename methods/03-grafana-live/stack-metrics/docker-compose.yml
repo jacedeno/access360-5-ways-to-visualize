@@ -1,0 +1,28 @@
+# iot-prometheus — the IoT-stack's own Prometheus (the "5 ways" stack).
+# Separate from spectra-io's spectra-prometheus (which stays on :9090, untouched).
+# Host port 9091 to avoid the conflict. Scrapes the Node-RED /metrics exporter.
+services:
+  iot-prometheus:
+    image: prom/prometheus:latest
+    container_name: iot-prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=30d
+      - --web.listen-address=:9090
+    ports:
+      - "9091:9090"     # host 9091 -> container 9090 (spectra-prometheus keeps 9090)
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./alerts.yml:/etc/prometheus/alerts.yml:ro
+      - iot-prom-data:/prometheus
+    networks:
+      - iot
+
+volumes:
+  iot-prom-data:
+
+networks:
+  iot:
+    external: true
+    name: iot_iot

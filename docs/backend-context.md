@@ -48,7 +48,7 @@ use host `iot-hivemq` instead of the IP.
 | Pattern | Scope |
 |---|---|
 | `access360/#` | Everything from every gateway (simplest for a sniff) |
-| `access360/+/#` | All gateways, all channels (the platform ingester's wildcard) |
+| `access360/+/#` | All gateways, all channels (the stack's Node-RED ingestion wildcard) |
 | `access360/43250372/#` | Only the current live gateway |
 | `access360/43250372/dyn/vib/notify` | Only full dynamic vibration readings (waveform) |
 
@@ -60,16 +60,19 @@ use host `iot-hivemq` instead of the IP.
  Internet ──► Cloudflare Tunnel ──► Web app only (public plane)
 
  Private plane (LAN 192.168.68.0/24 + homelab VPN):
-   192.168.68.150  IoT Docker host ("the data VM")
-     ├─ iot-hivemq      MQTT 5.0 broker        :1883
-     ├─ iot-node-red    Node-RED               :1880
-     └─ iot-influxdb3   InfluxDB 3 Core         :8086  (native :8181)
+   IoT Docker host — the one stack:
+     ├─ iot-hivemq      MQTT 5.0 broker        :1883   ← the protagonist
+     ├─ iot-nodered     Node-RED (ingest + FFT):1880
+     ├─ iot-influxdb3   InfluxDB 3 Core         :8086  (native :8181)
+     └─ iot-grafana     Grafana                 :3000
 ```
 
-- The **public plane** is the web application, exposed through Cloudflare Tunnel.
-- The **private plane** holds the broker, ingestion, database, and admin tooling.
-- All five visualization methods are **private-plane** clients. They run on the LAN
-  or VPN and connect straight to `iot-hivemq` / `192.168.68.150:1883`.
+- The **stack** holds the broker, Node-RED ingestion, the InfluxDB history store,
+  and Grafana — install it once (Portainer or `docker compose`).
+- Keep it on the **private plane** (LAN / homelab VPN); the broker is **not** meant
+  to be exposed to the internet.
+- Methods run on the LAN or VPN and connect to the stack: 1, 2, 4 and 5 straight to
+  `iot-hivemq` / `<host>:1883`; method 3 (Grafana) reads InfluxDB history too.
 
 ---
 
@@ -84,8 +87,9 @@ CTC ACCESS360 BLE sensors  ──BLE──►  ConnectBridge wireless gateway
                                             │  topics: access360/43250372/<channel>
                           ┌─────────────────┴─────────────────┐
                           ▼                                     ▼
-                Platform ingester                    The 5 methods in this repo
-                (→ InfluxDB 3)                        (subscribe directly)
+              Node-RED ingestion (in the stack)      The 5 methods in this repo
+              → InfluxDB 3 (history) + health         (live from MQTT; #3 also
+                                                       reads InfluxDB history)
 ```
 
 The gateway connects to the broker over a 4G LTE link backed by a **Hologram SIM**
@@ -130,11 +134,12 @@ health-only methods (1, 2, 3, 5) can ignore it.
 
 ## 6. Deployment target for helper services
 
-If a method needs a helper service (e.g. a Grafana container, a Node-RED
-container, an MQTT-over-WebSocket bridge), deploy it as a **Docker container on
-host `192.168.68.150`**, on the same Docker network as `iot-hivemq` so it can
-reach the broker by its in-stack name. No method requires a custom aggregator
-microservice — they all subscribe to HiveMQ directly.
+A method's helper (a Node-RED flow — e.g. the ingestion flow or the Hologram 4G
+flow — a Grafana dashboard, an MQTT-over-WebSocket bridge) installs **into the
+existing `iot-nodered` / shared stack** — the same Docker network as `iot-hivemq`,
+so it reaches the broker by its in-stack name. There is no custom private aggregator
+microservice in the path: ingestion is a Node-RED flow inside the stack, and the
+live methods talk to HiveMQ directly.
 
 ---
 

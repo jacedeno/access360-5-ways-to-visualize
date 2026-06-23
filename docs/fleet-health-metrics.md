@@ -1,15 +1,17 @@
 # Spectra Fleet Health — Metric Set
 
-The exact operational metrics the "Spectra Fleet Health" view tracks, so the
+The exact operational metrics the "Fleet Health" view tracks, so the
 health-oriented methods (1 IoT MQTT Panel, 2, 3 Grafana, **5 SenseCAP Indicator**)
 can reproduce the same picture. Each metric below lists **what it means**, **how to
-derive it from the MQTT stream**, and **the alert threshold** the platform uses.
+derive it from the MQTT stream**, and **the alert threshold**.
 
-> The original platform computes these from Prometheus gauges fed by the ingester.
-> The methods in this repo subscribe to MQTT directly, so this doc gives **both**:
-> the canonical definition/threshold, and how to recompute it from raw topics
-> (since these clients have no Prometheus). Topic/payload details are in
-> [`mqtt-topics.md`](mqtt-topics.md).
+> Every metric here is **derivable from raw MQTT** — that is the point. So this doc
+> gives both the canonical definition/threshold and how to compute it from the
+> topics. In the stack, **Node-RED** derives these from the MQTT stream and can
+> persist them to InfluxDB 3 for trends; a device or quick-look method that only
+> subscribes to MQTT computes them locally. (A Prometheus metrics backend is
+> optional and can be added to the stack later — it is not required for any metric
+> below.) Topic/payload details are in [`mqtt-topics.md`](mqtt-topics.md).
 
 ---
 
@@ -20,7 +22,7 @@ derive it from the MQTT stream**, and **the alert threshold** the platform uses.
 | Broker up/down | bool | MQTT connection state | connected | down for 2 min → CRITICAL |
 | Sensors online | count | `proc/checkin/notify` recency | all expected | last-seen ≥ 600 s ⇒ offline |
 | Messages /s | msg/s | rate of any `access360/#` message | nonzero | — |
-| Points written /s | pts/s | platform InfluxDB write rate | nonzero | — (platform-side) |
+| Points written /s | pts/s | Node-RED → InfluxDB 3 write rate | nonzero | — (stack-side) |
 | Errors /s | err/s | `error/notify` + parse failures | 0 | > 0 for 5 min → WARNING |
 | Battery % | % | `dyn/batt/notify` / `proc/reading/notify` `Batt` | ≥ 20 % | < 20 % for 30 min → WARNING |
 | RSSI | dBm | `rssi/notify` `Rssi` | ≥ -75 dBm | < -75 dBm for 30 min → WARNING |
@@ -55,10 +57,10 @@ derive it from the MQTT stream**, and **the alert threshold** the platform uses.
 
 ## 4. Points written per second
 
-- **Meaning:** InfluxDB write throughput — a platform-side metric.
-- **From MQTT:** not directly observable from the broker. A pure-MQTT client should
-  treat **messages/s** as its proxy. Documented here for parity with the platform
-  dashboard.
+- **Meaning:** InfluxDB write throughput — how fast Node-RED is persisting points.
+- **From MQTT:** not directly observable from the broker. A method that only
+  subscribes to MQTT should treat **messages/s** as its proxy. Documented here for
+  parity with the stack's history view.
 
 ## 5. Errors per second
 
@@ -94,13 +96,14 @@ metric.
 
 - **Authoritative source:** the **Hologram API** (`https://dashboard.hologram.io/api/1`),
   per-SIM `cur_billing_data_used` vs `overagelimit`. Requires a `HOLOGRAM_API_KEY`
-  (**secret — inject via env var, never commit**). A pure-MQTT client can't read
-  this directly; a small helper polling the API (deployable on `.150`) is needed if
-  a method wants true SIM usage.
+  (**secret — inject via env var, never commit**). MQTT can't carry this directly;
+  a small helper polling the API (it runs in the stack — see Method 5's
+  `hologram-poller/`, and Node-RED can do the same) republishes it for any method
+  that wants true SIM usage.
 - **MQTT-only proxy:** accumulate the **byte size of every received payload** per
   sensor/channel. The waveform on `dyn/vib/notify` (~514 KB per full reading)
   dominates, so this closely tracks real cellular cost.
-- **Cost model (platform constant):**
+- **Cost model (constants):**
 
   ```text
   projected_monthly_cost_usd =

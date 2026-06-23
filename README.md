@@ -1,22 +1,27 @@
 # 5 Ways to Visualize Your CTC Connect ACCESS360 Series
 
-Five independent, self-contained ways to **see** the live telemetry from a
+Five ways to **see** the live telemetry from a
 [CTC Connect ACCESS360](https://www.ctconline.com/) wireless vibration
 condition-monitoring fleet — from a quick desktop topic sniff to a hardware
-"Fleet Health" panel that sits on your desk.
+"Fleet Health" panel that sits on your desk — all served by **one
+easy-to-install IoT stack**.
 
-Every method here subscribes **directly to the existing HiveMQ MQTT broker**.
-There is no aggregator, no database, and no custom backend service in the path —
-each tool talks straight to the broker topics the gateway already publishes. The
-goal is to show how much observability you can get out of the raw MQTT stream
-with off-the-shelf tools plus a little firmware.
+**The broker is the protagonist.** An ACCESS360 ConnectBridge gateway speaks MQTT
+natively, so [**HiveMQ**](https://www.hivemq.com/products/mqtt-broker-hivemq-community-edition/)
+sits at the center of the stack and every method connects to it. Around the broker
+the stack adds just enough — **Node-RED** (ingestion + flows), **InfluxDB 3**
+(durable history), and **Grafana** (dashboards) — so you can both watch the fleet
+**live** and keep **history**, which is what makes trends and "time since last
+seen" actually work. Install the one stack and every method below has what it
+needs; the lightweight methods can still talk straight to the broker if that is
+all you want.
 
 > **Status:** Phase 2 — methods 3 and 4 are **delivered and running live** on the IoT
 > stack; methods 1 and 2 ship importable profiles/configs + real sample payloads;
-> method 5's firmware is built and awaits a hardware flash. This repository is
-> intentionally self-contained: all the backend context (broker, topics, payload
-> schemas, sensor IDs, and the Fleet Health metric set) lives under [`docs/`](docs/)
-> so each method can be built without the original platform repository.
+> method 5's firmware is built and awaits a hardware flash. The repo is
+> **self-contained**: all the backend context (broker, topics, payload schemas,
+> sensor IDs, and the Fleet Health metric set) lives under [`docs/`](docs/), so the
+> stack and every method build with no private repository needed.
 >
 > | # | Method | Status |
 > |---|---|---|
@@ -31,19 +36,30 @@ with off-the-shelf tools plus a little firmware.
 ## The system in one diagram
 
 ```
- BLE vibration sensors          4G LTE (Hologram SIM)        Private plane (LAN / VPN)
- WS100 / WS200 / WS300   ──BLE──►  ConnectBridge gateway  ──MQTT──►  HiveMQ CE broker
- (ACCESS360 series)                (serial 43250372)                 192.168.68.150:1883
-                                                                          │
-                          ┌───────────────────────────────────────────────┤  topics:
-                          │                                                 │  access360/<gw>/<channel>
-        ┌─────────────────┴───────┬──────────────┬──────────────────┬──────┴──────────────┐
-        ▼                         ▼              ▼                  ▼                     ▼
-   1. MQTTX               2. IoT MQTT Panel  3. Grafana Live   4. Node-RED FFT   5. SenseCAP Indicator D1L
-   (desktop sniff)        (Android phone)    (web streaming)   ⭐ waterfall      ⭐ on-device Health monitor
+ BLE vibration sensors          4G LTE (Hologram SIM)
+ WS100 / WS200 / WS300   ──BLE──►  ConnectBridge gateway  ──MQTT──►  ┌──────────────────────────────┐
+ (ACCESS360 series)                (serial 43250372)                 │  THE IoT STACK (one install) │
+                                   topics: access360/<gw>/<channel>  │                              │
+                                                                     │   HiveMQ ◄── the protagonist │
+                                                                     │     │                        │
+                                                                     │     ├─► Node-RED ─► InfluxDB3 │
+                                                                     │     │   (ingest + FFT)  (hist)│
+                                                                     │     │                     │  │
+                                                                     │     │                  Grafana│
+                                                                     └─────┼─────────────────────┼──┘
+        ┌──────────────────┬──────────────┬────────────────────┬─────────┘                     │
+        ▼                  ▼              ▼                    ▼                                  ▼
+   1. MQTTX        2. IoT MQTT Panel  4. Node-RED FFT   5. SenseCAP Indicator D1L       3. Grafana Live
+   (desktop sniff)  (Android phone)   ⭐ waterfall      ⭐ on-device Health monitor      (web dashboard)
+   └── live MQTT ───┴──────────────────────────────────┴──── connect straight to HiveMQ ──┘   reads
+                                                                                          InfluxDB (history)
+                                                                                          + HiveMQ (live)
 ```
 
-All five tools are MQTT subscribers. They differ only in **where they run** and
+Methods 1, 2, 4 and 5 connect **straight to HiveMQ** (the broker-native value
+prop). Method 3 (Grafana) leans on the rest of the stack — **InfluxDB 3 for
+history** (fed by Node-RED) plus live MQTT — because a board with no store can't
+show trends or "time since last seen." They differ in **where they run** and
 **what they draw**.
 
 ---
@@ -92,20 +108,26 @@ documented once, here:
 | [`docs/mqtt-topics.md`](docs/mqtt-topics.md) | Every MQTT topic with its exact JSON payload schema, types, units, and example messages. |
 | [`docs/sensors-and-gateways.md`](docs/sensors-and-gateways.md) | Gateway serials and sensor IDs currently in use, model conventions (WS100/200/300). |
 | [`docs/fleet-health-metrics.md`](docs/fleet-health-metrics.md) | The Spectra Fleet Health metric set: definitions, queries, thresholds, and 4G cost model. |
-| [`docs/influx-mapping.md`](docs/influx-mapping.md) | Reference: how the platform maps MQTT payloads to InfluxDB measurements (optional for these methods). |
+| [`docs/influx-mapping.md`](docs/influx-mapping.md) | How the stack's Node-RED ingestion maps MQTT payloads to InfluxDB 3 measurements — the schema behind the history/trends. |
 
 ---
 
-## Quick start (any method)
+## Quick start
 
-1. Be on the **private plane** — the broker lives on the LAN at
-   `192.168.68.150:1883` and is **not** exposed to the internet. Connect over the
-   local network or the homelab VPN.
-2. Confirm data is flowing with a one-liner before building anything fancy:
+1. **Install the stack.** Deploy the one IoT stack (HiveMQ + Node-RED + InfluxDB 3
+   + Grafana) — as a Portainer stack or with `docker compose up -d`. See
+   [**The stack**](#the-stack) below.
+2. **Point the gateway at HiveMQ** (broker host + `access360/<gw>/<channel>`
+   topics) and confirm data is flowing before building anything fancy:
    ```bash
-   mosquitto_sub -h 192.168.68.150 -t 'access360/#' -v
+   mosquitto_sub -h <stack-host> -t 'access360/#' -v
    ```
-3. Pick a method folder and follow its README.
+3. **Pick a method folder** and follow its README. Methods 1, 2, 4 and 5 only need
+   the broker; method 3 (Grafana) uses InfluxDB history too — both come from the
+   same stack.
+
+> Stay on the **private plane** — the broker is meant for the LAN / homelab VPN and
+> is **not** exposed to the internet.
 
 ---
 
@@ -129,18 +151,33 @@ documented once, here:
     └── 05-sensecap-indicator-d1l/   ⭐
 ```
 
-## Deployment note
+## The stack
 
-If a method needs a helper service (e.g. Grafana or Node-RED), it **reuses the
-existing IoT stack on host `192.168.68.150`** rather than standing up new
-infrastructure. Method 4, for example, deploys *into* the Node-RED that already runs
-there — added as a separate flow/dashboard page, leaving the production flow
-untouched (see [`methods/04-node-red-fft-waterfall/deploy/`](methods/04-node-red-fft-waterfall/deploy/)).
-No method requires a custom aggregator microservice — they all subscribe to HiveMQ
-directly.
+The whole backend is **one stack** you install once. Everything a reader needs is
+the stack — nothing else, no private platform service in the path:
 
-> The IoT stack on `.150` itself (HiveMQ, Node-RED, InfluxDB 3, Grafana) is a
-> separate project and will be written up on its own; this repo only consumes it.
+| Service | Role in the stack |
+|---|---|
+| **HiveMQ CE** (`iot-hivemq`) | MQTT 5.0 broker — the heart. The gateway and every method connect here. |
+| **Node-RED** (`iot-nodered`) | The glue: flows ingest MQTT → InfluxDB 3, run the Method 4 FFT/waterfall, poll Hologram (4G), and expose a Prometheus `/metrics` exporter. No custom private microservice. |
+| **InfluxDB 3 Core** (`iot-influxdb3`) | Durable history store (SQL via Flight SQL, database `ctc43250372`) — what makes trends and "last seen" work. |
+| **Prometheus** (`iot-prometheus`, `:9091`) | The stack's own Prometheus; scrapes the Node-RED `/metrics` exporter for Method 3's System Health KPIs. |
+| **Grafana** (`iot-grafana`) | Dashboards (Method 3), reading InfluxDB history + iot-prometheus KPIs + live MQTT. |
+
+The methods **reuse the existing shared IoT-stack instances** on the homelab host
+rather than standing up new infrastructure — per-method helpers (the Method 4 flow,
+the Hologram flow) install *into* the existing `iot-nodered`.
+
+> **Not part of this stack:** the **`spectra-ingester`** (and its own
+> `spectra-prometheus`) belong to a **separate project, `spectra-io`**, and must not
+> be touched. The 5-ways methods do **not** use that ingester — sensor data is
+> ingested by a **Node-RED flow** in `iot-nodered` (writing to the `ctc43250372`
+> InfluxDB database), which is what Method 3 reads.
+
+> **Status:** the per-method assets are delivered. Packaging the shared services as a
+> single top-level `docker-compose.yml` (so a reader can stand the stack up from
+> scratch) is a **future deliverable** — today the methods reuse the instances
+> already running on the homelab host.
 
 ## License
 

@@ -88,6 +88,16 @@ def parse_usage(device: dict) -> dict:
     """
     # Usage/limit can live at the top level or under a nested object depending on
     # the account; probe a couple of common shapes.
+    # Hologram device detail carries usage/state/sim under links.cellular[<n>]
+    # (a LIST), not at the top level. The /devices list endpoint is empty for
+    # org-scoped accounts, so the working path is a pinned-device fetch
+    # (HOLOGRAM_DEVICE_ID) — flatten its first cellular link so the lookups find it.
+    cell = {}
+    _links = device.get("links")
+    if isinstance(_links, dict) and isinstance(_links.get("cellular"), list) and _links["cellular"]:
+        cell = _links["cellular"][0] or {}
+    src = {**device, **cell}
+
     def dig(d: dict, key: str):
         if key in d:
             return d[key]
@@ -96,20 +106,20 @@ def parse_usage(device: dict) -> dict:
                 return d[nest][key]
         return None
 
-    used_bytes = dig(device, HOLOGRAM_USED_KEY)
-    limit_bytes = dig(device, HOLOGRAM_LIMIT_KEY)
+    used_bytes = dig(src, HOLOGRAM_USED_KEY)
+    limit_bytes = dig(src, HOLOGRAM_LIMIT_KEY)
 
     used_mb = bytes_to_mb(used_bytes)
     limit_mb = bytes_to_mb(limit_bytes)
     pct = int((100 * used_mb) / limit_mb) if limit_mb > 0 else 0
 
     # "live" / state — Hologram uses different state fields across plans.
-    state = (dig(device, "state") or dig(device, "status") or "").lower()
-    paused = state in ("pause", "paused", "deactivated", "inactive", "suspend")
+    state = (dig(src, "state") or dig(src, "status") or "").lower()
+    paused = state not in ("live",) if state else False
 
     # Last connect timestamp -> age in seconds (best-effort).
     last_connect_age = -1
-    last_connect = dig(device, "lastsession") or dig(device, "last_connect_time")
+    last_connect = dig(src, "lastsession") or dig(src, "last_connect_time")
     if last_connect:
         try:
             # Accept epoch seconds or ISO8601.
