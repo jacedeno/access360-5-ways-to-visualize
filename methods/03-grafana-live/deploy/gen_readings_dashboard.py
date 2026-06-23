@@ -48,15 +48,18 @@ def pbar(title, expr, legend, x, y, w, h, unit, steps, desc, mx=100):
                         "displayMode": "gradient", "orientation": "horizontal"}}
 
 # ---- InfluxDB readings panel ----
-def ireadings(title, sql, x, y, w, h, unit, desc):
-    return {"id": nid(), "type": "timeseries", "title": title, "description": desc, "datasource": IDS,
-            "targets": [{"refId": "A", "datasource": IDS, "rawSql": sql, "resultFormat": "table", "rawQuery": True}],
-            "gridPos": {"x": x, "y": y, "w": w, "h": h},
-            "fieldConfig": {"defaults": {"unit": unit, "custom": {
-                "drawStyle": "line", "showPoints": "always", "pointSize": 7,
-                "lineInterpolation": "linear", "spanNulls": True, "lineWidth": 2}}, "overrides": []},
-            "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": True,
-                        "calcs": ["lastNotNull", "max", "mean"]}, "tooltip": {"mode": "multi", "sort": "desc"}}}
+def ireadings(title, sql, x, y, w, h, unit, desc, time_from=None):
+    p = {"id": nid(), "type": "timeseries", "title": title, "description": desc, "datasource": IDS,
+         "targets": [{"refId": "A", "datasource": IDS, "rawSql": sql, "resultFormat": "table", "rawQuery": True}],
+         "gridPos": {"x": x, "y": y, "w": w, "h": h},
+         "fieldConfig": {"defaults": {"unit": unit, "custom": {
+             "drawStyle": "line", "showPoints": "always", "pointSize": 7,
+             "lineInterpolation": "linear", "spanNulls": True, "lineWidth": 2}}, "overrides": []},
+         "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": True,
+                     "calcs": ["lastNotNull", "max", "mean"]}, "tooltip": {"mode": "multi", "sort": "desc"}}}
+    if time_from:
+        p["timeFrom"] = time_from   # per-panel relative window override (e.g. "24h")
+    return p
 
 def text(content, x, y, w, h):
     return {"id": nid(), "type": "text", "title": "", "gridPos": {"x": x, "y": y, "w": w, "h": h},
@@ -85,7 +88,7 @@ def vib_sql(field, valias):
 
 # Temperature is stored in Celsius (temperature_c); convert to Fahrenheit for display.
 TEMP_SQL = ("SELECT date_bin(interval '1 minute', time) AS time, sensor_id, avg(temperature_c) * 9.0 / 5.0 + 32 AS temp_f "
-            f"FROM sensor_health WHERE metric='temperature' AND {WHERE} AND time >= now() - interval '6 hours' "
+            f"FROM sensor_health WHERE metric='temperature' AND {WHERE} AND time >= now() - interval '24 hours' "
             "GROUP BY 1, sensor_id ORDER BY 1")
 
 panels = []
@@ -126,7 +129,8 @@ panels.append(ireadings("Vibration acceleration — Z RMS (g) by sensor", vib_sq
                         12, 14, 12, 9, "suffix: g",
                         "Per-sensor Z-axis acceleration RMS (g)."))
 panels.append(ireadings("Temperature (°F) by sensor", TEMP_SQL, 0, 23, 24, 8, "fahrenheit",
-                        "Per-sensor temperature from dyn/temp/notify (stored in °C by the ingester, shown in °F)."))
+                        "Per-sensor temperature from dyn/temp/notify (stored in °C, shown in °F). "
+                        "Temperature is sparse, so this panel uses a 24h window.", time_from="24h"))
 
 dashboard = {
     "uid": "access360-fleet-readings", "title": "ACCESS360 — Fleet Health & Readings",

@@ -759,7 +759,7 @@
       "id": 15,
       "type": "timeseries",
       "title": "Temperature (\u00b0F) by sensor",
-      "description": "Per-sensor temperature from dyn/temp/notify (stored in \u00b0C by the ingester, shown in \u00b0F).",
+      "description": "Per-sensor temperature from dyn/temp/notify (stored in \u00b0C, shown in \u00b0F). Temperature is sparse, so this panel uses a 24h window.",
       "datasource": {
         "type": "influxdb",
         "uid": "${DS_INFLUX_UID}"
@@ -771,7 +771,7 @@
             "type": "influxdb",
             "uid": "${DS_INFLUX_UID}"
           },
-          "rawSql": "SELECT date_bin(interval '1 minute', time) AS time, sensor_id, avg(temperature_c) * 9.0 / 5.0 + 32 AS temp_f FROM sensor_health WHERE metric='temperature' AND gateway_sn='43250372' AND sensor_id IN (${sensor:singlequote}) AND time >= now() - interval '6 hours' GROUP BY 1, sensor_id ORDER BY 1",
+          "rawSql": "SELECT date_bin(interval '1 minute', time) AS time, sensor_id, avg(temperature_c) * 9.0 / 5.0 + 32 AS temp_f FROM sensor_health WHERE metric='temperature' AND gateway_sn='43250372' AND sensor_id IN (${sensor:singlequote}) AND time >= now() - interval '24 hours' GROUP BY 1, sensor_id ORDER BY 1",
           "resultFormat": "table",
           "rawQuery": true
         }
@@ -811,7 +811,8 @@
           "mode": "multi",
           "sort": "desc"
         }
-      }
+      },
+      "timeFrom": "24h"
     }
   ],
   "editable": true,

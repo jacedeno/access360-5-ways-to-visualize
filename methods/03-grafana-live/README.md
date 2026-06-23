@@ -126,8 +126,10 @@ sensor; pick one to drill in.
 ## Still to do
 
 - ✅ **Readings datasource → `ctc43250372`** (done).
-- ✅ **Temperature ingested** by the [`stack-metrics/`](stack-metrics/) flow (write path
-  verified; real WS100 temperature accrues as `proc/reading`/`dyn/temp` arrive).
+- ✅ **Temperature** flowing: ongoing via the [`stack-metrics/`](stack-metrics/) flow,
+  and historical points seeded by a one-time **read-only** backfill from `spectra`
+  (temperature is sparse — dynamic sensors send `dyn/temp` ~hourly, WS100 `proc/reading`
+  rarer; there is no trigger for it).
 - ✅ **System Health → `iot-prometheus`** (Node-RED exporter). The dashboard no longer
   depends on `spectra-io`'s ingester.
 - Capture vibration/temperature over a longer window for a fuller trend.
