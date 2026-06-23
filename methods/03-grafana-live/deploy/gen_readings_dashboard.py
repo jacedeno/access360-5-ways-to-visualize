@@ -114,12 +114,12 @@ panels.append(pstat("Errors/s", "sum(rate(ingester_errors_total[5m])) or vector(
 panels.append(pgauge("4G Data Used", "100 * sum(hologram_sim_data_used_bytes) / clamp_min(sum(hologram_sim_data_limit_bytes), 1)",
                     15, 4, 4, 4, "percent", USE, "Cellular data used vs plan limit (Hologram SIMs)."))
 panels.append(pstat("Points Written/s", "rate(ingester_points_written_total[5m])", 19, 4, 5, 4, "none", PLAIN,
-                    "InfluxDB points written per second.", graph="area"))
+                    "Sensor readings ingested per second (write-throughput proxy).", graph="area"))
 panels.append(pbar("Battery % by sensor", "ingester_sensor_battery_percent", "{{sensor_id}}",
                    0, 8, 12, 5, "percent", BATT, "Latest battery per sensor (red < 20%)."))
 panels.append(pbar("RSSI (dBm) by sensor", "ingester_sensor_rssi_dbm + 100", "{{sensor_id}}",
                    12, 8, 12, 5, "none", [{"color": "red", "value": None}, {"color": "yellow", "value": 20}, {"color": "green", "value": 30}],
-                   "BLE signal per sensor (shown as dBm+100; higher = stronger).", mx=60))
+                   "BLE signal strength per sensor. Bars use dBm+100 (so ~25 = -75 dBm, the weak threshold); higher = stronger.", mx=60))
 
 # --- Sensor Readings (InfluxDB, $sensor-filtered) ---
 panels.append(row("Sensor Readings — vibration & temperature", 13))

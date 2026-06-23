@@ -438,7 +438,7 @@
       "id": 9,
       "type": "stat",
       "title": "Points Written/s",
-      "description": "InfluxDB points written per second.",
+      "description": "Sensor readings ingested per second (write-throughput proxy).",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROM_UID}"
@@ -563,7 +563,7 @@
       "id": 11,
       "type": "bargauge",
       "title": "RSSI (dBm) by sensor",
-      "description": "BLE signal per sensor (shown as dBm+100; higher = stronger).",
+      "description": "BLE signal strength per sensor. Bars use dBm+100 (so ~25 = -75 dBm, the weak threshold); higher = stronger.",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROM_UID}"
