@@ -83,7 +83,8 @@ def vib_sql(field, valias):
             f"FROM vibration WHERE {WHERE} AND {field} IS NOT NULL AND time >= now() - interval '6 hours' "
             f"GROUP BY 1, sensor_id ORDER BY 1")
 
-TEMP_SQL = ("SELECT date_bin(interval '1 minute', time) AS time, sensor_id, avg(temperature_c) AS temp_c "
+# Temperature is stored in Celsius (temperature_c); convert to Fahrenheit for display.
+TEMP_SQL = ("SELECT date_bin(interval '1 minute', time) AS time, sensor_id, avg(temperature_c) * 9.0 / 5.0 + 32 AS temp_f "
             f"FROM sensor_health WHERE metric='temperature' AND {WHERE} AND time >= now() - interval '6 hours' "
             "GROUP BY 1, sensor_id ORDER BY 1")
 
@@ -124,8 +125,8 @@ panels.append(ireadings("Vibration velocity — Z RMS (in/s) by sensor", vib_sql
 panels.append(ireadings("Vibration acceleration — Z RMS (g) by sensor", vib_sql("z_rms", "accel_z"),
                         12, 14, 12, 9, "suffix: g",
                         "Per-sensor Z-axis acceleration RMS (g)."))
-panels.append(ireadings("Temperature (°C) by sensor", TEMP_SQL, 0, 23, 24, 8, "celsius",
-                        "Per-sensor temperature from dyn/temp/notify (now stored by the ingester)."))
+panels.append(ireadings("Temperature (°F) by sensor", TEMP_SQL, 0, 23, 24, 8, "fahrenheit",
+                        "Per-sensor temperature from dyn/temp/notify (stored in °C by the ingester, shown in °F)."))
 
 dashboard = {
     "uid": "access360-fleet-readings", "title": "ACCESS360 — Fleet Health & Readings",
