@@ -125,20 +125,21 @@
       "id": 4,
       "type": "stat",
       "title": "Sensors Online",
-      "description": "Sensors heard from in the last 10 minutes.",
+      "description": "Sensors that reported within 13h (the 'not silent' threshold). Dynamic WS200/WS300 sensors report only a few times a day (no heartbeat), so a short window undercounts; 5 = all sensors alive.",
       "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROM_UID}"
+        "type": "influxdb",
+        "uid": "${DS_INFLUX_UID}"
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROM_UID}"
+            "type": "influxdb",
+            "uid": "${DS_INFLUX_UID}"
           },
-          "expr": "count(time() - ingester_sensor_last_seen_timestamp_seconds < 600) or vector(0)",
-          "instant": true
+          "rawSql": "SELECT now() AS time, count(DISTINCT sensor_id) AS online FROM sensor_health WHERE gateway_sn='43250372' AND sensor_id != '99999999' AND time >= now() - interval '13 hours'",
+          "resultFormat": "table",
+          "rawQuery": true
         }
       ],
       "gridPos": {
@@ -158,8 +159,12 @@
                 "value": null
               },
               {
-                "color": "green",
+                "color": "yellow",
                 "value": 1
+              },
+              {
+                "color": "green",
+                "value": 5
               }
             ]
           },

@@ -29,6 +29,18 @@ def pstat(title, expr, x, y, w, h, unit, steps, desc, mappings=None, graph="none
                         "colorMode": "background", "graphMode": graph, "textMode": "value",
                         "justifyMode": "auto"}}
 
+def istat(title, sql, x, y, w, h, unit, steps, desc):
+    # A stat panel backed by InfluxDB (FlightSQL) instead of Prometheus — used where
+    # the persistent per-sensor history is the right source (e.g. counting live sensors
+    # across a long window, since sparse dynamic sensors aren't in the in-memory exporter).
+    return {"id": nid(), "type": "stat", "title": title, "description": desc, "datasource": IDS,
+            "targets": [{"refId": "A", "datasource": IDS, "rawSql": sql, "resultFormat": "table", "rawQuery": True}],
+            "gridPos": {"x": x, "y": y, "w": w, "h": h},
+            "fieldConfig": {"defaults": {"unit": unit, "thresholds": {"mode": "absolute", "steps": steps},
+                            "color": {"mode": "thresholds"}}, "overrides": []},
+            "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False},
+                        "colorMode": "background", "graphMode": "none", "textMode": "value", "justifyMode": "auto"}}
+
 def pgauge(title, expr, x, y, w, h, unit, steps, desc, mx=100):
     return {"id": nid(), "type": "gauge", "title": title, "description": desc, "datasource": PROM,
             "targets": [{"refId": "A", "datasource": PROM, "expr": expr, "instant": True}],
@@ -76,6 +88,14 @@ AGE = [{"color": "green", "value": None}, {"color": "yellow", "value": 1800}, {"
 BATT = [{"color": "red", "value": None}, {"color": "yellow", "value": 20}, {"color": "green", "value": 40}]
 USE = [{"color": "green", "value": None}, {"color": "yellow", "value": 80}, {"color": "red", "value": 95}]
 PLAIN = [{"color": "blue", "value": None}]
+ONLINE = [{"color": "red", "value": None}, {"color": "yellow", "value": 1}, {"color": "green", "value": 5}]
+
+# Sensors that reported within the "silent" threshold (13h) — counted from InfluxDB,
+# which keeps every sensor's history (the sparse WS200/WS300 only report a few times a
+# day, so a short window or the in-memory exporter would undercount). Excludes the
+# synthetic 99999999 test serial.
+ONLINE_SQL = (f"SELECT now() AS time, count(DISTINCT sensor_id) AS online FROM sensor_health "
+              f"WHERE gateway_sn='{GW}' AND sensor_id != '99999999' AND time >= now() - interval '13 hours'")
 
 # InfluxDB filters: real gateway + the $sensor multi-select; Z-axis is common to
 # WS200 (single-axis) and WS300 (triaxial), so it is the clean cross-sensor metric.
@@ -103,8 +123,10 @@ panels.append(text(
 panels.append(row("System Health", 3))
 panels.append(pstat("Broker", "max(ingester_mqtt_connected)", 0, 4, 3, 4, "none", OK_RED,
                     "Is the MQTT broker reachable (UP / DOWN).", mappings=UP_MAP))
-panels.append(pstat("Sensors Online", "count(time() - ingester_sensor_last_seen_timestamp_seconds < 600) or vector(0)",
-                    3, 4, 3, 4, "none", OK_RED, "Sensors heard from in the last 10 minutes."))
+panels.append(istat("Sensors Online", ONLINE_SQL, 3, 4, 3, 4, "none", ONLINE,
+                    "Sensors that reported within 13h (the 'not silent' threshold). "
+                    "Dynamic WS200/WS300 sensors report only a few times a day (no heartbeat), "
+                    "so a short window undercounts; 5 = all sensors alive."))
 panels.append(pstat("Worst Last-Seen", "max(time() - ingester_sensor_last_seen_timestamp_seconds)",
                     6, 4, 3, 4, "s", AGE, "Oldest 'time since last activity' across the fleet."))
 panels.append(pstat("Messages/s", "sum(rate(ingester_messages_total[5m]))", 9, 4, 3, 4, "none", PLAIN,
