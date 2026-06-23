@@ -1,0 +1,7 @@
+{
+  "_comment": "Captured from access360/43250372/dyn/batt/notify on 2026-06-22 (in reply to a dyn/batt/trigger refresh). Sensor 22255728 (WS300). Flat payload. Batt 96% = healthy (>= 20%). A WS200 reply (11251423) read 88% in the same burst.",
+  "ID": 1010,
+  "Serial": 22255728,
+  "Time": "2026-01-28 05:54",
+  "Batt": 96
+}

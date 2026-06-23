@@ -1,0 +1,53 @@
+[
+  {
+    "name": "ACCESS360 broker",
+    "clientId": "mqttx-access360",
+    "username": "",
+    "password": "",
+    "keepalive": 60,
+    "clean": true,
+    "protocol": "mqtt",
+    "hostname": "192.168.68.150",
+    "port": 1883,
+    "path": "/mqtt",
+    "connectTimeout": 10,
+    "reconnect": true,
+    "reconnectPeriod": 4000,
+    "mqttVersion": "5.0",
+    "subscriptions": [
+      {
+        "topic": "access360/43250372/#",
+        "qos": 1,
+        "nl": false,
+        "rap": false,
+        "rh": 0
+      },
+      {
+        "topic": "access360/43250372/rssi/notify",
+        "qos": 1
+      },
+      {
+        "topic": "access360/43250372/proc/checkin/notify",
+        "qos": 1
+      },
+      {
+        "topic": "access360/43250372/dyn/batt/notify",
+        "qos": 1
+      },
+      {
+        "topic": "access360/43250372/dyn/vib/notify/lite",
+        "qos": 1
+      }
+    ],
+    "properties": {
+      "sessionExpiryInterval": 0,
+      "receiveMaximum": 65535
+    },
+    "will": {
+      "lastWillTopic": "",
+      "lastWillPayload": "",
+      "lastWillQos": 0,
+      "lastWillRetain": false
+    }
+  }
+]

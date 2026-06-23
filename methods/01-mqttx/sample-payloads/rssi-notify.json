@@ -1,0 +1,6 @@
+{
+  "_comment": "Captured from access360/43250372/rssi/notify on 2026-06-22. Sensor 11252280 (WS100). Flat payload, uses 'Timestamp' (with seconds), not 'Time'. RSSI -47 dBm = healthy (>= -75 dBm).",
+  "Serial": 11252280,
+  "Rssi": -47,
+  "Timestamp": "2026-01-28 05:51:17"
+}

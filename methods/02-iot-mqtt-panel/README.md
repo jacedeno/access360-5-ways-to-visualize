@@ -61,7 +61,78 @@ fleet-health view on your phone — no server, no backend.
 - IoT MQTT Panel can export/import the dashboard as JSON — keep that export in
   this folder in Phase 2.
 
-## Phase 2 (later)
+## What's in this folder (Phase 2 — delivered)
 
-Add the exported panel configuration (`iot-mqtt-panel-config.json`) and a phone
-screenshot of the live dashboard.
+| File | What it is |
+|---|---|
+| [`iot-mqtt-panel-config.json`](iot-mqtt-panel-config.json) | Importable IoT MQTT Panel config: one connection to `192.168.68.150:1883` (no TLS, anonymous) plus a **Fleet Health** dashboard of panels bound to the health topics, with battery/RSSI thresholds and a battery-refresh button. |
+
+The payloads on every health topic are **JSON**, so each panel parses a single
+field (`Rssi`, `Batt`, `Temp`, `Xrms`, `Serial`, `Error`) via the app's JSON-path
+extraction. All the topics used here are **flat** — the field sits at the top level
+of the message, so the JSON path is just the field name (e.g. `Batt`), with no
+parent object. (The only nested payloads in this system are the full
+`dyn/vib/notify` waveform and `proc/reading/notify`, which nest scalars under a
+`Reading` object — this dashboard deliberately reads `Batt`/`Temp` straight off
+`proc/reading/notify`'s flat top level, matching the live capture, and avoids the
+heavy waveform entirely.)
+
+### Import the config (Android)
+
+1. Copy `iot-mqtt-panel-config.json` to the phone (USB, Drive, email, etc.).
+2. In IoT MQTT Panel: top-right **⋮ menu → Import** (some builds: **Settings →
+   Import/Export → Import configuration**).
+3. Pick the file. The **ACCESS360** connection and the **Fleet Health** dashboard
+   load together.
+4. Open the connection and tap **Connect**.
+
+### Panel → topic → field mapping
+
+| Panel | Type | Topic | JSON field | Threshold / note |
+|---|---|---|---|---|
+| RSSI 11251722 (WS100) | Gauge | `rssi/notify` | `Rssi` | red `< -75 dBm`, range -90…-40 |
+| RSSI 11252280 (WS100) | Gauge | `rssi/notify` | `Rssi` | red `< -75 dBm` |
+| RSSI trend (all sensors) | Line graph | `rssi/notify` | `Rssi` | live BLE trend |
+| Battery 22255728 (WS300) | Gauge | `dyn/batt/notify` | `Batt` | red `< 20 %`, 0–100 |
+| Battery 11251423 (WS200) | Gauge | `dyn/batt/notify` | `Batt` | red `< 20 %` |
+| Battery WS100 (proc/reading) | Gauge | `proc/reading/notify` | `Batt` | red `< 20 %` — WS100 reports battery **inside** its reading |
+| Temperature WS100 | Gauge | `proc/reading/notify` | `Temp` | °C |
+| Temperature (dyn sensors) | Value | `dyn/temp/notify` | `Temp` | °C |
+| Overall RMS (X) | Value | `dyn/vib/notify/lite` | `Xrms` | g — overall only, no waveform |
+| Heartbeat (online) | LED | `proc/checkin/notify` | `Serial` | lights on every heartbeat; online cutoff 600 s |
+| Last sensor to check in | Value | `proc/checkin/notify` | `Serial` | most-recent heartbeat serial |
+| Last error | Text/log | `error/notify` | `Error` | last gateway error string |
+| Refresh battery 22255728 | Button (publish) | `dyn/batt/trigger` | — publishes `{"Serial": 22255728}` | forces a fresh `dyn/batt/notify` in ~10 s |
+
+> **Per-sensor caveat.** The fleet publishes **all** sensors on the **same** topic
+> (the sensor serial is in the payload `Serial` field, not the topic). A single
+> gauge bound to `rssi/notify` therefore shows the **most recent** RSSI across all
+> sensors, not one specific sensor. The two RSSI / battery gauges are labelled per
+> sensor for layout, but to truly pin one sensor you need payload-`Serial`
+> filtering — supported on some IoT MQTT Panel builds and not others. If your build
+> lacks it, read the value next to the **Heartbeat** / **Last sensor to check in**
+> panels for context, or split by adding `Serial` to a text panel.
+
+> **Schema note / assumptions.** This config is a **best-effort** reconstruction of
+> IoT MQTT Panel's export shape (`connections` / `dashboards` / `panels` arrays,
+> with `jsonpathEnabled` + `jsonpath` for field extraction and `redBelow` for
+> thresholds). Exact key names and panel-type strings vary by app version. If the
+> import is rejected or a panel looks wrong:
+> 1. Create **one** connection + **one** gauge by hand in the app (values from
+>    **Setup** above and the table here).
+> 2. Use the app's **Export** to produce a known-good JSON for your build.
+> 3. Diff it against this file and adjust key names, then re-import the full set.
+>
+> The `_comment` / `comment` fields are documentation only; remove them if your
+> build is strict about unknown keys.
+
+### Still to do
+
+- Verify the import on a real device and **re-export** to lock your app version's
+  exact schema (panel-type names, threshold keys).
+- Confirm a live `proc/reading/notify`, `dyn/temp/notify`, and
+  `dyn/vib/notify/lite` actually populate the WS100 battery/temp and RMS panels —
+  these fire on the slower reading cadence.
+- Add per-sensor `Serial` filtering if your build supports it (otherwise the
+  per-sensor RSSI/battery gauges show the latest value across the fleet).
+- Add a phone screenshot of the live dashboard.

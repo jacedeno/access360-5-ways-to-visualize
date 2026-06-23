@@ -1,0 +1,5 @@
+{
+  "_comment": "Captured from access360/43250372/proc/checkin/notify on 2026-06-22. Sensor 11251722 (WS100). Flat payload. Heartbeat = sensor online; use as last-seen timestamp. Note payload clock is ~5 months behind real arrival time (derive freshness from broker arrival time, not 'Time').",
+  "Serial": 11251722,
+  "Time": "2026-01-28 05:50"
+}
