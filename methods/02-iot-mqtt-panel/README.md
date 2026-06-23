@@ -40,7 +40,7 @@ fleet-health view on your phone — no server, no backend.
    |---|---|---|---|
    | Value / Gauge | `access360/43250372/dyn/batt/notify` | `Batt` | Battery %, 0–100 |
    | Gauge | `access360/43250372/rssi/notify` | `Rssi` | dBm, range -90…-40 |
-   | Value | `access360/43250372/dyn/vib/notify/lite` | `Xrms` | Overall RMS (g) |
+   | Value | `access360/43250372/dyn/vib/notify/lite` | `Reading.Xrms` | Overall RMS (g) — nested |
    | LED Indicator | `access360/43250372/proc/checkin/notify` | `Serial` | Lights on heartbeat = online |
    | Log / Text | `access360/43250372/error/notify` | `Error` | Last error string |
 
@@ -68,14 +68,17 @@ fleet-health view on your phone — no server, no backend.
 | [`iot-mqtt-panel-config.json`](iot-mqtt-panel-config.json) | Importable IoT MQTT Panel config: one connection to `192.168.68.150:1883` (no TLS, anonymous) plus a **Fleet Health** dashboard of panels bound to the health topics, with battery/RSSI thresholds and a battery-refresh button. |
 
 The payloads on every health topic are **JSON**, so each panel parses a single
-field (`Rssi`, `Batt`, `Temp`, `Xrms`, `Serial`, `Error`) via the app's JSON-path
-extraction. All the topics used here are **flat** — the field sits at the top level
-of the message, so the JSON path is just the field name (e.g. `Batt`), with no
-parent object. (The only nested payloads in this system are the full
-`dyn/vib/notify` waveform and `proc/reading/notify`, which nest scalars under a
-`Reading` object — this dashboard deliberately reads `Batt`/`Temp` straight off
-`proc/reading/notify`'s flat top level, matching the live capture, and avoids the
-heavy waveform entirely.)
+field via the app's JSON-path extraction. Most topics are **flat** — the field sits
+at the top level, so the JSON path is just the field name (e.g. `Rssi`, `Batt` on
+`dyn/batt/notify`, `Serial`). But **`proc/reading/notify` and `dyn/vib/notify/lite`
+are nested under a `Reading` object** (confirmed by the live captures in
+[`../01-mqttx/sample-payloads/`](../01-mqttx/sample-payloads/)), so their panels use
+the **dotted** path: `Reading.Batt`, `Reading.Temp`, `Reading.Xrms`. The dashboard
+avoids the heavy full `dyn/vib/notify` waveform entirely.
+
+> If your app build can't do dotted JSON paths, point the WS100 battery/temp panels
+> at the **flat** `dyn/batt/notify` (`Batt`) / `dyn/temp/notify` (`Temp`) topics
+> instead.
 
 ### Import the config (Android)
 
@@ -95,10 +98,10 @@ heavy waveform entirely.)
 | RSSI trend (all sensors) | Line graph | `rssi/notify` | `Rssi` | live BLE trend |
 | Battery 22255728 (WS300) | Gauge | `dyn/batt/notify` | `Batt` | red `< 20 %`, 0–100 |
 | Battery 11251423 (WS200) | Gauge | `dyn/batt/notify` | `Batt` | red `< 20 %` |
-| Battery WS100 (proc/reading) | Gauge | `proc/reading/notify` | `Batt` | red `< 20 %` — WS100 reports battery **inside** its reading |
-| Temperature WS100 | Gauge | `proc/reading/notify` | `Temp` | °C |
-| Temperature (dyn sensors) | Value | `dyn/temp/notify` | `Temp` | °C |
-| Overall RMS (X) | Value | `dyn/vib/notify/lite` | `Xrms` | g — overall only, no waveform |
+| Battery WS100 (proc/reading) | Gauge | `proc/reading/notify` | `Reading.Batt` | red `< 20 %` — WS100 reports battery **inside** its (nested) reading |
+| Temperature WS100 | Gauge | `proc/reading/notify` | `Reading.Temp` | °C — nested |
+| Temperature (dyn sensors) | Value | `dyn/temp/notify` | `Temp` | °C — flat |
+| Overall RMS (X) | Value | `dyn/vib/notify/lite` | `Reading.Xrms` | g — overall only, nested under `Reading` |
 | Heartbeat (online) | LED | `proc/checkin/notify` | `Serial` | lights on every heartbeat; online cutoff 600 s |
 | Last sensor to check in | Value | `proc/checkin/notify` | `Serial` | most-recent heartbeat serial |
 | Last error | Text/log | `error/notify` | `Error` | last gateway error string |
@@ -130,9 +133,9 @@ heavy waveform entirely.)
 
 - Verify the import on a real device and **re-export** to lock your app version's
   exact schema (panel-type names, threshold keys).
-- Confirm a live `proc/reading/notify`, `dyn/temp/notify`, and
-  `dyn/vib/notify/lite` actually populate the WS100 battery/temp and RMS panels —
-  these fire on the slower reading cadence.
+- Confirm the nested-path panels (`Reading.Batt`/`Reading.Temp`/`Reading.Xrms`)
+  render once `proc/reading/notify` / `dyn/vib/notify/lite` fire (slow cadence; real
+  samples are in [`../01-mqttx/sample-payloads/`](../01-mqttx/sample-payloads/)).
 - Add per-sensor `Serial` filtering if your build supports it (otherwise the
   per-sensor RSSI/battery gauges show the latest value across the fleet).
 - Add a phone screenshot of the live dashboard.

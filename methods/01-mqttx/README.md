@@ -76,6 +76,9 @@ mosquitto_sub -h 192.168.68.150 -t 'access360/43250372/#' | jq .
 | [`sample-payloads/rssi-notify.json`](sample-payloads/rssi-notify.json) | Real captured `rssi/notify` message (sensor `11252280`, WS100). "Is data flowing?" evidence. |
 | [`sample-payloads/proc-checkin-notify.json`](sample-payloads/proc-checkin-notify.json) | Real captured `proc/checkin/notify` heartbeat (sensor `11251722`, WS100). |
 | [`sample-payloads/dyn-batt-notify.json`](sample-payloads/dyn-batt-notify.json) | Real captured `dyn/batt/notify` (sensor `22255728`, WS300), captured by triggering a refresh. |
+| [`sample-payloads/proc-reading-notify.json`](sample-payloads/proc-reading-notify.json) | Real captured `proc/reading/notify` (sensor `11252280`, WS100). **Nested** under `Reading`; carries per-axis RMS (g) + `Temp` + `Batt`. |
+| [`sample-payloads/dyn-temp-notify.json`](sample-payloads/dyn-temp-notify.json) | Real captured `dyn/temp/notify` (sensor `22255728`, WS300). Flat: `Temp` (°C). |
+| [`sample-payloads/dyn-vib-notify-lite.json`](sample-payloads/dyn-vib-notify-lite.json) | Real captured `dyn/vib/notify/lite` (sensor `22255728`, WS300). **Nested** under `Reading`; overall scalars in **g** *and* velocity in **in/s** (no raw arrays). |
 
 All sample payloads were captured live from the broker on **2026-06-22** with
 `mosquitto_sub` (read-only). Each file has a `_comment` field naming its source
@@ -83,10 +86,13 @@ topic and sensor. Note the payload `Time`/`Timestamp` clocks read `2026-01-28`
 because the gateway/sensor clock is ~5 months behind real time — derive freshness
 from **broker arrival time**, not the payload timestamp.
 
-> **Flat vs nested payloads.** Every topic in this folder is **flat** — fields like
-> `Rssi`, `Batt`, `Serial`, `Temp` sit at the top level. Only the full
-> `dyn/vib/notify` (Method 4) and `proc/reading/notify` nest scalars under a
-> `Reading` object. The quick-look topics here never do.
+> **Flat vs nested payloads.** Most quick-look topics are **flat** (`Rssi`, `Batt`,
+> `Serial`, `Temp` at the top level), but **`proc/reading/notify` and
+> `dyn/vib/notify/lite` are nested under a `Reading` object** — confirmed by the live
+> captures — as is the full `dyn/vib/notify` (Method 4). For those, read
+> `Reading.Xrms`, `Reading.Batt`, etc. The live `dyn/vib/notify/lite` also carries
+> velocity scalars (`Reading.VelXrms`… in in/s), which the flat schema in
+> `docs/mqtt-topics.md` does not show.
 
 ### Import the connection
 
@@ -124,11 +130,11 @@ samples in `sample-payloads/` and the schemas in
 
 ### Still to do
 
-- Capture and add `sample-payloads/proc-reading-notify.json` (WS100 reading with
-  `Temp`+`Batt`), `dyn-temp-notify.json`, and `dyn-vib-notify-lite.json` — these
-  fire on the sensors' slower reading cadence and were not seen during the capture
-  window. Catch them with a longer `mosquitto_sub -h 192.168.68.150 -t
-  'access360/43250372/#' -v` run.
+- All six health topics now have captured samples. A long passive window will only
+  ever show `rssi/notify` + `proc/checkin/notify` when the fleet is idle; the reading
+  topics (`proc/reading`, `dyn/temp`, `dyn/vib/notify/lite`) fire on the sensors'
+  slower cadence — re-capture fresh ones any time with
+  `mosquitto_sub -h 192.168.68.150 -t 'access360/43250372/#' -v`.
 - Re-export `connection.json` from your actual MQTTX build to lock the exact schema
   for your version.
 - Add a short screen capture / GIF of the live stream.

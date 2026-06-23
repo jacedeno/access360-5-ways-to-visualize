@@ -97,6 +97,14 @@ the quick-look and dashboard methods.
 > The CTC manual lists this as `proc/vib/notify/lite`; the live deployment routes
 > it as `dyn/vib/notify/lite`. Subscribe with `access360/<gw>/dyn/vib/notify/lite`.
 
+> **Live shape (verified 2026-06-22).** On this deployment the payload is actually
+> **nested under a `Reading` object** (like `dyn/vib/notify` and
+> `proc/reading/notify`), and it **also includes velocity scalars** — so read
+> `Reading.Xrms` … (g) and `Reading.VelXrms` … (**in/s = IPS**). A real capture is in
+> [`../methods/01-mqttx/sample-payloads/dyn-vib-notify-lite.json`](../methods/01-mqttx/sample-payloads/dyn-vib-notify-lite.json).
+> Clients that parse the flat schema above will miss the fields — use the dotted
+> `Reading.*` path.
+
 ---
 
 ## 3. `proc/reading/notify` — WS100 process-control reading

@@ -1,0 +1,26 @@
+{
+  "_comment": "Captured from access360/43250372/dyn/vib/notify/lite on 2026-06-22. Sensor 22255728 (WS300). NESTED under 'Reading'; overall-only (no raw arrays). Carries acceleration scalars (Xrms.. in g) AND velocity scalars (VelXrms.. in in/s = IPS). Note: live shape differs from the flat schema in docs/mqtt-topics.md - it is nested and includes velocity.",
+  "Reading": {
+    "ID": 36,
+    "Serial": 11251423,
+    "Time": "2026-01-28 02:03",
+    "Xpk": null,
+    "Xpp": null,
+    "Xrms": null,
+    "Ypk": null,
+    "Ypp": null,
+    "Yrms": null,
+    "Zpk": 0.202,
+    "Zpp": 0.365,
+    "Zrms": 0.05218334938584354,
+    "VelXpk": null,
+    "VelXpp": null,
+    "VelXrms": null,
+    "VelYpk": null,
+    "VelYpp": null,
+    "VelYrms": null,
+    "VelZpk": 0.045,
+    "VelZpp": 0.087,
+    "VelZrms": 0.0138417619904403
+  }
+}
