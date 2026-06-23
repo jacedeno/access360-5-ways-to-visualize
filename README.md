@@ -11,17 +11,17 @@ each tool talks straight to the broker topics the gateway already publishes. The
 goal is to show how much observability you can get out of the raw MQTT stream
 with off-the-shelf tools plus a little firmware.
 
-> **Status:** Phase 2 — building out the methods. Method 4 (Node-RED FFT/waterfall)
-> is **delivered and running live** on the IoT stack; the rest are scaffolded with
-> full setup docs and land next. This repository is intentionally self-contained:
-> all the backend context (broker, topics, payload schemas, sensor IDs, and the
-> Fleet Health metric set) lives under [`docs/`](docs/) so each method can be built
-> without the original platform repository.
+> **Status:** Phase 2 — methods 3 and 4 are **delivered and running live** on the IoT
+> stack; methods 1 and 2 ship importable profiles/configs + real sample payloads;
+> method 5's firmware is built and awaits a hardware flash. This repository is
+> intentionally self-contained: all the backend context (broker, topics, payload
+> schemas, sensor IDs, and the Fleet Health metric set) lives under [`docs/`](docs/)
+> so each method can be built without the original platform repository.
 >
 > | # | Method | Status |
 > |---|---|---|
-> | 1 | MQTTX | 📄 documented |
-> | 2 | IoT MQTT Panel | 📄 documented |
+> | 1 | MQTTX | ✅ profile + sample payloads |
+> | 2 | IoT MQTT Panel | ✅ importable config (verify in app) |
 > | 3 | Grafana Live | ✅ **delivered + live** |
 > | 4 | Node-RED FFT/waterfall ⭐ | ✅ **delivered + live** |
 > | 5 | SenseCAP Indicator D1L ⭐ | 🔧 firmware built (pending HW flash) |

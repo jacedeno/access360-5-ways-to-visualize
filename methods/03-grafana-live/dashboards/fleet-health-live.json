@@ -5,14 +5,15 @@
     "access360",
     "mqtt",
     "live",
+    "influxdb",
     "method-3"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
   "version": 0,
-  "refresh": "",
+  "refresh": "30s",
   "time": {
-    "from": "now-15m",
+    "from": "now-7d",
     "to": "now"
   },
   "panels": [
@@ -24,21 +25,21 @@
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 4
+        "h": 3
       },
       "options": {
         "mode": "markdown",
-        "content": "### ACCESS360 \u2014 Live Fleet Health  \u00b7  Grafana Live via MQTT\nStreaming straight from **HiveMQ** (`iot-hivemq:1883`) \u2014 no database. Gateway `43250372`. **Velocity (IPS)** comes from `\u2026/derived/vib` (flattened from the on-demand full `dyn/vib/notify` by the Node-RED velocity normalizer), so IPS panels fill when a full reading is taken. Health panels stream continuously as sensors report."
+        "content": "### ACCESS360 \u2014 Fleet Health\n**Top:** history from **InfluxDB 3** (`spectra`) \u2014 always populated. **Bottom:** **Grafana Live** straight from HiveMQ (no DB) \u2014 fills as sensors stream. Velocity (IPS) live is flattened from the on-demand `dyn/vib/notify` by the Node-RED normalizer."
       }
     },
     {
       "id": 2,
       "type": "row",
-      "title": "Vibration velocity \u2014 IPS (in/s)",
+      "title": "Fleet history \u2014 InfluxDB 3 (always populated)",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 4,
+        "y": 3,
         "w": 24,
         "h": 1
       },
@@ -47,8 +48,259 @@
     {
       "id": 3,
       "type": "timeseries",
-      "title": "Velocity RMS per axis \u2014 IPS",
-      "description": "vel_x_rms / vel_y_rms / vel_z_rms (in/s) from the velocity normalizer.",
+      "title": "BLE RSSI by sensor \u2014 last 7d",
+      "description": "Per-sensor RSSI history (7 days).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${DS_INFLUX_UID}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${DS_INFLUX_UID}"
+          },
+          "rawSql": "SELECT date_bin(interval '30 minutes', time) AS time, sensor_id, avg(rssi_dbm) AS rssi FROM sensor_health WHERE metric='rssi' AND gateway_sn='43250372' AND time >= now() - interval '7 days' GROUP BY 1, sensor_id ORDER BY 1",
+          "resultFormat": "table",
+          "rawQuery": true
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 16,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dBm",
+          "custom": {
+            "drawStyle": "line",
+            "showPoints": "always",
+            "pointSize": 6,
+            "spanNulls": true,
+            "lineWidth": 2
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Last recorded velocity \u2014 IPS",
+      "description": "Most recent full-reading overall velocity. Full readings are on-demand, so this is the last known value.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${DS_INFLUX_UID}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${DS_INFLUX_UID}"
+          },
+          "rawSql": "SELECT time, sqrt(vel_x_rms*vel_x_rms + vel_y_rms*vel_y_rms + vel_z_rms*vel_z_rms) AS vel_overall FROM vibration WHERE gateway_sn='43250372' AND vel_x_rms IS NOT NULL AND time >= now() - interval '365 days' ORDER BY time",
+          "resultFormat": "table",
+          "rawQuery": true
+        }
+      ],
+      "gridPos": {
+        "x": 16,
+        "y": 4,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: in/s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.157
+              },
+              {
+                "color": "orange",
+                "value": 0.275
+              },
+              {
+                "color": "red",
+                "value": 0.44
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^vel_overall$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value_and_name"
+      }
+    },
+    {
+      "id": 5,
+      "type": "bargauge",
+      "title": "Battery % by sensor (latest)",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${DS_INFLUX_UID}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${DS_INFLUX_UID}"
+          },
+          "rawSql": "SELECT time, sensor_id, battery_pct FROM sensor_health WHERE metric='battery' AND gateway_sn='43250372' AND time >= now() - interval '60 days' ORDER BY time",
+          "resultFormat": "table",
+          "rawQuery": true
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 20
+              },
+              {
+                "color": "green",
+                "value": 40
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "displayMode": "gradient",
+        "orientation": "horizontal"
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Sensors reporting per hour \u2014 7d",
+      "description": "Distinct sensors seen each hour (7 days).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${DS_INFLUX_UID}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${DS_INFLUX_UID}"
+          },
+          "rawSql": "SELECT date_bin(interval '1 hour', time) AS time, count(distinct sensor_id) AS sensors FROM sensor_health WHERE gateway_sn='43250372' AND time >= now() - interval '7 days' GROUP BY 1 ORDER BY 1",
+          "resultFormat": "table",
+          "rawQuery": true
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": {
+            "drawStyle": "line",
+            "showPoints": "always",
+            "pointSize": 6,
+            "spanNulls": true,
+            "lineWidth": 2
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "row",
+      "title": "Live stream \u2014 Grafana Live via MQTT (no database)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Velocity RMS per axis \u2014 IPS (live)",
+      "description": "Live from the velocity normalizer; fills when a full reading is taken.",
       "datasource": {
         "type": "grafana-mqtt-datasource",
         "uid": "${DS_MQTT_UID}"
@@ -65,9 +317,9 @@
       ],
       "gridPos": {
         "x": 0,
-        "y": 5,
+        "y": 20,
         "w": 16,
-        "h": 9
+        "h": 8
       },
       "fieldConfig": {
         "defaults": {
@@ -193,10 +445,10 @@
       }
     },
     {
-      "id": 4,
+      "id": 9,
       "type": "gauge",
       "title": "Overall velocity \u2014 IPS (ISO zones)",
-      "description": "Vector sum of axis velocity RMS. Green/Amber/Orange/Red ~ ISO 10816 general-machine zones.",
+      "description": "",
       "datasource": {
         "type": "grafana-mqtt-datasource",
         "uid": "${DS_MQTT_UID}"
@@ -213,9 +465,9 @@
       ],
       "gridPos": {
         "x": 16,
-        "y": 5,
+        "y": 20,
         "w": 8,
-        "h": 9
+        "h": 8
       },
       "fieldConfig": {
         "defaults": {
@@ -261,23 +513,10 @@
       }
     },
     {
-      "id": 5,
-      "type": "row",
-      "title": "Overall acceleration (g)",
-      "collapsed": false,
-      "gridPos": {
-        "x": 0,
-        "y": 14,
-        "w": 24,
-        "h": 1
-      },
-      "panels": []
-    },
-    {
-      "id": 6,
+      "id": 10,
       "type": "timeseries",
-      "title": "Acceleration RMS per axis (g)",
-      "description": "Xrms / Yrms / Zrms (g) from the flat dyn/vib/notify/lite overall reading.",
+      "title": "Acceleration RMS per axis (g) \u2014 live",
+      "description": "",
       "datasource": {
         "type": "grafana-mqtt-datasource",
         "uid": "${DS_MQTT_UID}"
@@ -294,9 +533,9 @@
       ],
       "gridPos": {
         "x": 0,
-        "y": 15,
+        "y": 28,
         "w": 16,
-        "h": 8
+        "h": 7
       },
       "fieldConfig": {
         "defaults": {
@@ -358,7 +597,7 @@
       }
     },
     {
-      "id": 7,
+      "id": 11,
       "type": "stat",
       "title": "Z-axis RMS (latest, g)",
       "datasource": {
@@ -377,9 +616,9 @@
       ],
       "gridPos": {
         "x": 16,
-        "y": 15,
+        "y": 28,
         "w": 8,
-        "h": 8
+        "h": 7
       },
       "fieldConfig": {
         "defaults": {
@@ -421,23 +660,10 @@
       }
     },
     {
-      "id": 8,
-      "type": "row",
-      "title": "Fleet health \u2014 continuous stream",
-      "collapsed": false,
-      "gridPos": {
-        "x": 0,
-        "y": 23,
-        "w": 24,
-        "h": 1
-      },
-      "panels": []
-    },
-    {
-      "id": 9,
+      "id": 12,
       "type": "timeseries",
       "title": "BLE RSSI by sensor \u2014 live",
-      "description": "One line per sensor (partitioned by Serial).",
+      "description": "",
       "datasource": {
         "type": "grafana-mqtt-datasource",
         "uid": "${DS_MQTT_UID}"
@@ -454,9 +680,9 @@
       ],
       "gridPos": {
         "x": 0,
-        "y": 24,
+        "y": 35,
         "w": 12,
-        "h": 8
+        "h": 7
       },
       "fieldConfig": {
         "defaults": {
@@ -516,7 +742,7 @@
       ]
     },
     {
-      "id": 10,
+      "id": 13,
       "type": "timeseries",
       "title": "Temperature \u2014 live",
       "description": "",
@@ -536,9 +762,9 @@
       ],
       "gridPos": {
         "x": 12,
-        "y": 24,
+        "y": 35,
         "w": 12,
-        "h": 8
+        "h": 7
       },
       "fieldConfig": {
         "defaults": {
@@ -600,7 +826,7 @@
       }
     },
     {
-      "id": 11,
+      "id": 14,
       "type": "table",
       "title": "Sensor heartbeats \u2014 live",
       "datasource": {
@@ -619,9 +845,9 @@
       ],
       "gridPos": {
         "x": 0,
-        "y": 32,
+        "y": 42,
         "w": 12,
-        "h": 7
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -640,7 +866,7 @@
       }
     },
     {
-      "id": 12,
+      "id": 15,
       "type": "stat",
       "title": "Battery % (latest)",
       "datasource": {
@@ -659,9 +885,9 @@
       ],
       "gridPos": {
         "x": 12,
-        "y": 32,
+        "y": 42,
         "w": 6,
-        "h": 7
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -703,7 +929,7 @@
       }
     },
     {
-      "id": 13,
+      "id": 16,
       "type": "stat",
       "title": "RSSI (latest)",
       "datasource": {
@@ -722,9 +948,9 @@
       ],
       "gridPos": {
         "x": 18,
-        "y": 32,
+        "y": 42,
         "w": 6,
-        "h": 7
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
