@@ -1,68 +1,85 @@
-# Method 3 — Grafana Live (Web Streaming)
+# Method 3 — Grafana Dashboard (ACCESS360 — Fleet Health & Readings)
 
 **Tier:** Dashboard · **Platform:** Web browser (Grafana)
 
-A **hybrid** web dashboard: a top **"Fleet history"** section backed by InfluxDB 3
-(always populated) over a bottom **"Live stream"** section fed **straight from
-HiveMQ** via Grafana Live (WebSocket, no DB). Live shows the demo wow; history makes
-the board useful even when the bursty fleet is quiet.
+The featured board is **"ACCESS360 — Fleet Health & Readings"** (uid
+`access360-fleet-readings`): a compact **System Health** strip on top (broker up,
+sensors online, *time since last activity*, 4G usage, throughput, per-sensor battery
+& RSSI) over a **Sensor Readings** section below (vibration in/s & g, and
+temperature) with a **`Sensor` dropdown** to overlay all sensors (compare amplitude)
+or drill into one.
 
-## Purpose
+> **Why not "Grafana straight from the broker"?** That was the original idea, but a
+> broker-only board **cannot** show history, "time since last activity", or stored
+> readings — Grafana Live is ephemeral (no backfill) and the fleet is bursty. So the
+> real dashboard reads from where the data is durably stored: **Prometheus** (the
+> spectra-ingester's fleet metrics) for the health KPIs and **InfluxDB 3** for the
+> readings. A broker-direct live board is still included as a secondary demo (below).
 
-- A proper web dashboard for **fleet health** and **vibration / velocity (IPS)**,
-  shareable by URL on the private plane.
-- Live streaming (sub-second) via Grafana Live reading MQTT directly **plus**
-  always-on history/trends from the InfluxDB the platform already writes.
-- A stepping stone to the platform's full "Spectra Fleet Health" board.
+![Fleet Health & Readings — top (System Health)](docs-img/fleet-health-readings-top.png)
+![Fleet Health & Readings — bottom (Sensor Readings)](docs-img/fleet-health-readings-bottom.png)
 
 ## How it works
 
 ```
-                         ┌─ Grafana MQTT data source ─ Grafana Live (WS) ─► live panels
+                         ┌─ ingester /metrics ─► Prometheus ─► System Health KPIs (top)
 HiveMQ (…150:1883) ──────┤
-                         └─ spectra-ingester ─► InfluxDB 3 (spectra) ─ SQL ─► history panels
+                         └─ spectra-ingester ─► InfluxDB 3 (spectra) ─ SQL ─► Sensor Readings (bottom)
 ```
 
-- **Live** uses the first-party
-  [grafana-mqtt-datasource](https://github.com/grafana/mqtt-datasource): it
-  subscribes to topics and streams each message into a Grafana Live channel.
-- **History** uses an **InfluxDB 3** data source (SQL/FlightSQL) pointed at the
-  `spectra` database, where the ingester persists `sensor_health` and `vibration`.
+- **System Health (top):** Prometheus metrics the ingester exposes
+  (`ingester_mqtt_connected`, `ingester_sensor_last_seen_timestamp_seconds`,
+  `ingester_sensor_battery_percent`, `hologram_sim_*`, message/point/error rates).
+- **Sensor Readings (bottom):** an **InfluxDB 3** data source (SQL/FlightSQL) over the
+  `spectra` database. The **`$sensor`** template variable feeds
+  `WHERE sensor_id IN (${sensor:singlequote})`; the **Z axis** is the cross-sensor
+  comparison metric (common to single-axis WS200 and triaxial WS300).
 
-> **Why hybrid:** Grafana Live does **not** backfill — it only shows messages that
-> arrive after you open a panel, and ACCESS360 sensors publish in bursts (the fleet
-> can be silent for hours). A pure-live board therefore reads "No data" most of the
-> time. The InfluxDB section fixes that with real history.
+> **Prerequisite the dashboard exposed:** the ingester was **dropping
+> `dyn/temp/notify`** (0 temperature rows in InfluxDB) and stamping dynamic-sensor
+> readings with the sensors' **stuck RTC** (~5 months behind). Both were fixed in the
+> `spectra-io` ingester (store temperature + clamp skewed timestamps to ingest time)
+> so the readings land "now" and the temperature panel populates. See that repo.
 
 ## Prerequisites
 
 This **reuses the existing `iot-grafana`** on the `.150` IoT stack (Grafana
 **12.4.1**) — no new container. It needs:
 
-- The **`grafana-mqtt-datasource`** plugin (signed, in the catalog). Install once
-  (this restarts Grafana):
-  ```bash
-  ssh root@192.168.68.150 'docker exec iot-grafana grafana cli plugins install grafana-mqtt-datasource && docker restart iot-grafana'
-  ```
-- A Grafana **service-account token** (role Admin/Editor) for `deploy/deploy.sh`, and
-  an **InfluxDB 3 token** (`INFLUX_TOKEN`) for the history data source.
-- iot-grafana already shares the `iot_iot` network with `iot-hivemq` and
-  `iot-influxdb3`, so it reaches `iot-hivemq:1883` (TLS off, anonymous) and
-  `iot-influxdb3:8181` (InfluxDB 3 SQL).
+- A Grafana **service-account token** (role Admin/Editor) and an **InfluxDB 3 token**
+  (`INFLUX_TOKEN`) for `deploy/deploy.sh`. The **Prometheus** data source ("Spectra
+  Prometheus") already exists.
+- (For the secondary broker-direct board only) the **`grafana-mqtt-datasource`**
+  plugin: `ssh root@192.168.68.150 'docker exec iot-grafana grafana cli plugins install grafana-mqtt-datasource && docker restart iot-grafana'`.
+- iot-grafana shares the `iot_iot` network with `iot-hivemq`, `iot-influxdb3` and
+  `spectra-prometheus`.
 
 ## What's in this folder (Phase 2 — delivered)
 
 | Path | What it is |
 |---|---|
-| `provisioning/datasource.yml` | The MQTT data source (`uri: tcp://iot-hivemq:1883`), for file-provisioning or reference. |
-| `dashboards/fleet-health-live.json` | The hybrid dashboard (16 panels, 2 sections). DS uids templated as `${DS_MQTT_UID}` / `${DS_INFLUX_UID}`. |
-| `deploy/deploy.sh` | Idempotent deploy into the existing iot-grafana via API: upserts both data sources, imports the dashboard. |
-| `deploy/gen_dashboard.py` | Generator that builds the dashboard JSON (documents how each panel is wired). |
-| `normalizer/flow.json` | Node-RED flow that flattens the **live velocity (IPS)** out of `dyn/vib/notify` to a flat topic so the live panels can plot it (see below). |
-| `docs-img/grafana-hybrid-history.png` | Screenshot: the always-populated InfluxDB history section (RSSI 7d, last IPS, battery, sensors/hour). |
-| `docs-img/grafana-live-ips.png` | Screenshot: live velocity (IPS) — per-axis time series + ISO-zone gauge. |
+| `dashboards/fleet-health-readings.json` | **The featured dashboard** (15 panels). DS uids templated `${DS_PROM_UID}` / `${DS_INFLUX_UID}`. |
+| `deploy/gen_readings_dashboard.py` | Generator for the featured dashboard (documents every KPI/reading query). |
+| `deploy/deploy.sh` | Idempotent deploy into iot-grafana: upserts the data sources and imports both dashboards. |
+| `docs-img/fleet-health-readings-top.png` / `-bottom.png` | Screenshots of the featured dashboard. |
+| `dashboards/fleet-health-live.json` + `deploy/gen_dashboard.py` + `normalizer/flow.json` | The **secondary, broker-direct** live board (Grafana Live via MQTT + velocity normalizer). Kept as a demo; see below. |
+| `provisioning/datasource.yml` | MQTT data source reference for the broker-direct board. |
 
-![Grafana — hybrid history section](docs-img/grafana-hybrid-history.png)
+### Deploy
+
+```bash
+GRAFANA_TOKEN=<grafana-sa-token> INFLUX_TOKEN=<influx3-token> ./deploy/deploy.sh
+# open http://192.168.68.150:3000/d/access360-fleet-readings
+```
+
+---
+
+## Secondary: the broker-direct live board (`access360-live`)
+
+The original "Grafana straight from the broker" experiment is kept as a demo of
+Grafana Live. It streams from HiveMQ with **no database in the path**, which is neat
+but **ephemeral** — it only shows messages that arrive while a panel is open, so it
+reads "No data" whenever the bursty fleet is quiet. Details below.
 
 ### Deploy
 

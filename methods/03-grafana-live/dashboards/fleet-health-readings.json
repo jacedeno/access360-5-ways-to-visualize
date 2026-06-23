@@ -1,0 +1,842 @@
+{
+  "uid": "access360-fleet-readings",
+  "title": "ACCESS360 \u2014 Fleet Health & Readings",
+  "tags": [
+    "access360",
+    "fleet-health",
+    "readings",
+    "method-3"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 0,
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 3
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "## ACCESS360 \u2014 Fleet Health & Readings\n**Top:** system condition at a glance (broker, sensors online, last activity, battery, 4G, throughput) \u2014 from the Spectra ingester (Prometheus). **Bottom:** what the sensors send \u2014 vibration (in/s & g) and temperature \u2014 from InfluxDB. Use the **Sensor** dropdown to overlay all sensors (compare amplitude) or pick one."
+      }
+    },
+    {
+      "id": 2,
+      "type": "row",
+      "title": "System Health",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 3,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Broker",
+      "description": "MQTT broker connection (ingester_mqtt_connected).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROM_UID}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROM_UID}"
+          },
+          "expr": "max(ingester_mqtt_connected)",
+          "instant": true
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 3,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "UP",
+                  "color": "green"
+                },
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Sensors Online",
+      "description": "Sensors heard from in the last 10 minutes.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROM_UID}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROM_UID}"
+          },
+          "expr": "count(time() - ingester_sensor_last_seen_timestamp_seconds < 600) or vector(0)",
+          "instant": true
+        }
+      ],
+      "gridPos": {
+        "x": 3,
+        "y": 4,
+        "w": 3,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Worst Last-Seen",
+      "description": "Oldest 'time since last activity' across the fleet.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROM_UID}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROM_UID}"
+          },
+          "expr": "max(time() - ingester_sensor_last_seen_timestamp_seconds)",
+          "instant": true
+        }
+      ],
+      "gridPos": {
+        "x": 6,
+        "y": 4,
+        "w": 3,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1800
+              },
+              {
+                "color": "red",
+                "value": 7200
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Messages/s",
+      "description": "MQTT messages ingested per second (5m rate).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROM_UID}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROM_UID}"
+          },
+          "expr": "sum(rate(ingester_messages_total[5m]))",
+          "instant": true
+        }
+      ],
+      "gridPos": {
+        "x": 9,
+        "y": 4,
+        "w": 3,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "value_and_name",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Errors/s",
+      "description": "Processing errors per second (5m rate).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROM_UID}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROM_UID}"
+          },
+          "expr": "sum(rate(ingester_errors_total[5m])) or vector(0)",
+          "instant": true
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 3,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0.001
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 8,
+      "type": "gauge",
+      "title": "4G Data Used",
+      "description": "Cellular data used vs plan limit (Hologram SIMs).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROM_UID}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROM_UID}"
+          },
+          "expr": "100 * sum(hologram_sim_data_used_bytes) / clamp_min(sum(hologram_sim_data_limit_bytes), 1)",
+          "instant": true
+        }
+      ],
+      "gridPos": {
+        "x": 15,
+        "y": 4,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdMarkers": true
+      }
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Points Written/s",
+      "description": "InfluxDB points written per second.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROM_UID}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROM_UID}"
+          },
+          "expr": "rate(ingester_points_written_total[5m])",
+          "instant": true
+        }
+      ],
+      "gridPos": {
+        "x": 19,
+        "y": 4,
+        "w": 5,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "value_and_name",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 10,
+      "type": "bargauge",
+      "title": "Battery % by sensor",
+      "description": "Latest battery per sensor (red < 20%).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROM_UID}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROM_UID}"
+          },
+          "expr": "ingester_sensor_battery_percent",
+          "legendFormat": "{{sensor_id}}",
+          "instant": true
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 20
+              },
+              {
+                "color": "green",
+                "value": 40
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "displayMode": "gradient",
+        "orientation": "horizontal"
+      }
+    },
+    {
+      "id": 11,
+      "type": "bargauge",
+      "title": "RSSI (dBm) by sensor",
+      "description": "BLE signal per sensor (shown as dBm+100; higher = stronger).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROM_UID}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROM_UID}"
+          },
+          "expr": "ingester_sensor_rssi_dbm + 100",
+          "legendFormat": "{{sensor_id}}",
+          "instant": true
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "min": 0,
+          "max": 60,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 20
+              },
+              {
+                "color": "green",
+                "value": 30
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "displayMode": "gradient",
+        "orientation": "horizontal"
+      }
+    },
+    {
+      "id": 12,
+      "type": "row",
+      "title": "Sensor Readings \u2014 vibration & temperature",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Vibration velocity \u2014 Z RMS (in/s) by sensor",
+      "description": "Per-sensor Z-axis velocity RMS (IPS). Overlay to compare amplitude between machines; ISO-10816 territory.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${DS_INFLUX_UID}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${DS_INFLUX_UID}"
+          },
+          "rawSql": "SELECT date_bin(interval '30 seconds', time) AS time, sensor_id, avg(vel_z_rms) AS vel_z FROM vibration WHERE gateway_sn='43250372' AND sensor_id IN (${sensor:singlequote}) AND vel_z_rms IS NOT NULL AND time >= now() - interval '6 hours' GROUP BY 1, sensor_id ORDER BY 1",
+          "resultFormat": "table",
+          "rawQuery": true
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 12,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: in/s",
+          "custom": {
+            "drawStyle": "line",
+            "showPoints": "always",
+            "pointSize": 7,
+            "lineInterpolation": "linear",
+            "spanNulls": true,
+            "lineWidth": 2
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull",
+            "max",
+            "mean"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Vibration acceleration \u2014 Z RMS (g) by sensor",
+      "description": "Per-sensor Z-axis acceleration RMS (g).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${DS_INFLUX_UID}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${DS_INFLUX_UID}"
+          },
+          "rawSql": "SELECT date_bin(interval '30 seconds', time) AS time, sensor_id, avg(z_rms) AS accel_z FROM vibration WHERE gateway_sn='43250372' AND sensor_id IN (${sensor:singlequote}) AND z_rms IS NOT NULL AND time >= now() - interval '6 hours' GROUP BY 1, sensor_id ORDER BY 1",
+          "resultFormat": "table",
+          "rawQuery": true
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 14,
+        "w": 12,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: g",
+          "custom": {
+            "drawStyle": "line",
+            "showPoints": "always",
+            "pointSize": 7,
+            "lineInterpolation": "linear",
+            "spanNulls": true,
+            "lineWidth": 2
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull",
+            "max",
+            "mean"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Temperature (\u00b0C) by sensor",
+      "description": "Per-sensor temperature from dyn/temp/notify (now stored by the ingester).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${DS_INFLUX_UID}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${DS_INFLUX_UID}"
+          },
+          "rawSql": "SELECT date_bin(interval '1 minute', time) AS time, sensor_id, avg(temperature_c) AS temp_c FROM sensor_health WHERE metric='temperature' AND gateway_sn='43250372' AND sensor_id IN (${sensor:singlequote}) AND time >= now() - interval '6 hours' GROUP BY 1, sensor_id ORDER BY 1",
+          "resultFormat": "table",
+          "rawQuery": true
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "custom": {
+            "drawStyle": "line",
+            "showPoints": "always",
+            "pointSize": 7,
+            "lineInterpolation": "linear",
+            "spanNulls": true,
+            "lineWidth": 2
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull",
+            "max",
+            "mean"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    }
+  ],
+  "editable": true,
+  "graphTooltip": 1,
+  "templating": {
+    "list": [
+      {
+        "name": "sensor",
+        "type": "custom",
+        "label": "Sensor",
+        "multi": true,
+        "includeAll": true,
+        "allValue": null,
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "query": "22255728,11251423,11251280,11251722,11252280",
+        "options": [],
+        "datasource": null
+      }
+    ]
+  }
+}

@@ -50,15 +50,33 @@ else
   echo "→ INFLUX_TOKEN not set — skipping InfluxDB data source (history panels will be empty)"
 fi
 
-echo "→ importing dashboard (uid access360-live)"
-python3 - "$MQTT_UID" "$INFLUX_UID" <<'PY' > /tmp/dash_import.json
+import_dash() {  # $1=file  $2..=sed-style "PLACEHOLDER=value" pairs
+  local file="$1"; shift
+  python3 - "$file" "$@" <<'PY' > /tmp/dash_import.json
 import json, sys
-mqtt_uid, influx_uid = sys.argv[1], sys.argv[2]
-dash = json.load(open("dashboards/fleet-health-live.json"))
-s = json.dumps(dash).replace("${DS_MQTT_UID}", mqtt_uid).replace("${DS_INFLUX_UID}", influx_uid)
+dash = json.load(open(sys.argv[1]))
+s = json.dumps(dash)
+for pair in sys.argv[2:]:
+    k, v = pair.split("=", 1)
+    s = s.replace(k, v)
 print(json.dumps({"dashboard": json.loads(s), "overwrite": True, "folderUid": ""}))
 PY
-curl -fsS -m 12 "${AUTH[@]}" -H 'Content-Type: application/json' -X POST "$G/api/dashboards/db" -d @/tmp/dash_import.json \
-  | python3 -c 'import sys,json;d=json.load(sys.stdin);print("  ->",d.get("status"),d.get("url"))'
+  curl -fsS -m 12 "${AUTH[@]}" -H 'Content-Type: application/json' -X POST "$G/api/dashboards/db" -d @/tmp/dash_import.json \
+    | python3 -c 'import sys,json;d=json.load(sys.stdin);print("  ->",d.get("status"),d.get("url"))'
+}
 
-echo "✓ done — open ${G}/d/access360-live"
+# Prometheus data source (pre-existing "Spectra Prometheus") — look up its uid.
+PROM_UID=$(curl -s -m 10 "${AUTH[@]}" "$G/api/datasources" \
+  | python3 -c 'import sys,json;ds=json.load(sys.stdin);print(next((d["uid"] for d in ds if d["type"]=="prometheus"), ""))')
+
+echo "→ importing dashboard: ACCESS360 — Fleet Health & Readings (uid access360-fleet-readings)"
+if [ -n "$PROM_UID" ]; then
+  import_dash dashboards/fleet-health-readings.json "\${DS_PROM_UID}=$PROM_UID" "\${DS_INFLUX_UID}=$INFLUX_UID"
+else
+  echo "  !! no Prometheus data source found — skipping the readings dashboard (KPI panels need it)"
+fi
+
+echo "→ importing dashboard: ACCESS360 — Live Fleet Health (uid access360-live, broker-direct/legacy)"
+import_dash dashboards/fleet-health-live.json "\${DS_MQTT_UID}=$MQTT_UID" "\${DS_INFLUX_UID}=$INFLUX_UID"
+
+echo "✓ done — open ${G}/d/access360-fleet-readings"
