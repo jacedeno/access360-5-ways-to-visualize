@@ -20,7 +20,7 @@ derive it from the MQTT stream**, and **the alert threshold**.
 | Metric | Unit | Source signal | "Healthy" | Alert threshold |
 |---|---|---|---|---|
 | Broker up/down | bool | MQTT connection state | connected | down for 2 min → CRITICAL |
-| Sensors online | count | `proc/checkin/notify` recency | all expected | last-seen ≥ 600 s ⇒ offline |
+| Sensors online | count | message recency per sensor | all expected | ≥ 600 s ⇒ offline *for heartbeat (WS100) sensors*; dynamic WS200/WS300 have no heartbeat — use the 13 h silent threshold (see §2) |
 | Messages /s | msg/s | rate of any `access360/#` message | nonzero | — |
 | Points written /s | pts/s | Node-RED → InfluxDB 3 write rate | nonzero | — (stack-side) |
 | Errors /s | err/s | `error/notify` + parse failures | 0 | > 0 for 5 min → WARNING |
@@ -44,9 +44,27 @@ derive it from the MQTT stream**, and **the alert threshold**.
 
 - **Meaning:** how many sensors have reported recently.
 - **From MQTT:** maintain a per-`Serial` "last message time" updated on **any**
-  message for that sensor (especially `proc/checkin/notify`). A sensor is **online**
-  if `now − last_seen < 600 s` (10 minutes).
-- **Online cutoff:** **600 seconds**.
+  message for that sensor. A sensor is **online** if `now − last_seen` is within the
+  cutoff.
+- **Online cutoff:** **600 s (10 min)** — *but only meaningful for sensors that
+  heartbeat.*
+
+> **⚠️ Cutoff depends on the sensor type — this is a real gotcha.** Only **WS100**
+> process sensors send a periodic `proc/checkin/notify` heartbeat (thousands of
+> messages/day), so the 600 s cutoff fits them. The **dynamic WS200/WS300** sensors
+> have **no heartbeat** — they transmit only when they take a reading (a few times a
+> day, ~4–10 messages/day). With a 600 s window they read "offline" almost all the
+> time even though they are perfectly alive, so a count of "sensors in the last
+> 10 min" will under-report (e.g. show 2 of 5).
+>
+> For a count that reflects **all live sensors**, use the **"not silent" threshold
+> (13 h / 46 800 s)** instead — a sensor is considered alive unless it has been
+> silent past the *Sensor silent* alert window (§8). Method 3's dashboard does
+> exactly this: its **Sensors Online** stat counts `distinct sensor_id` seen in the
+> last 13 h, queried from **InfluxDB** (which keeps every sensor's history, unlike an
+> in-memory exporter that only knows sensors seen since it started). A device or
+> quick-look method that only watches MQTT live can apply the same 13 h window to its
+> per-`Serial` last-seen table.
 
 ## 3. Messages per second
 
