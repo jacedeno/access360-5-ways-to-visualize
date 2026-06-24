@@ -104,6 +104,7 @@ documented once, here:
 
 | Doc | Contents |
 |---|---|
+| [`docs/iot-stack.md`](docs/iot-stack.md) | The stack reference: services, ports, volumes, `.env`, data flow, Node-RED flows, deploy, and the `spectra-io` boundary. |
 | [`docs/backend-context.md`](docs/backend-context.md) | Broker connection (host, port, TLS, auth), network topology, deployment notes, the `192.168.68.150` Docker host. |
 | [`docs/mqtt-topics.md`](docs/mqtt-topics.md) | Every MQTT topic with its exact JSON payload schema, types, units, and example messages. |
 | [`docs/sensors-and-gateways.md`](docs/sensors-and-gateways.md) | Gateway serials and sensor IDs currently in use, model conventions (WS100/200/300). |
