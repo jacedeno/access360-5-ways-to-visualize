@@ -1,0 +1,118 @@
+# ACCESS360 — the IoT stack (one install for all 5 ways)
+#
+# HiveMQ (MQTT broker) + Node-RED (ingestion, FFT, /metrics exporter, Hologram poll)
+# + InfluxDB 3 Core (+ UI) + Grafana + Prometheus. Everything the methods need.
+#
+#   cp .env.example .env     # fill in the secrets
+#   docker compose up -d     # or import as a Portainer stack
+#
+# This is the portable template (named volumes). The author's homelab runs the same
+# services but with host bind-mounts under /opt/iot-stack/data — both are equivalent.
+name: iot
+
+services:
+  hivemq:
+    image: hivemq/hivemq-ce:latest
+    container_name: iot-hivemq
+    restart: unless-stopped
+    ports:
+      - "1883:1883"            # MQTT (the gateway + every method connect here)
+      # 8000 is the optional MQTT-over-WebSocket listener — publish it if a browser
+      # client needs WS:  - "8000:8000"
+    volumes:
+      - hivemq-data:/opt/hivemq/data
+      - hivemq-log:/opt/hivemq/log
+    environment:
+      - TZ=${TZ:-UTC}
+    networks: [iot]
+
+  nodered:
+    image: nodered/node-red:latest
+    container_name: iot-nodered
+    restart: unless-stopped
+    ports:
+      - "1880:1880"
+    volumes:
+      - nodered-data:/data     # holds the flows (Method 4 FFT, ingestion, /metrics, Hologram)
+    environment:
+      - TZ=${TZ:-UTC}
+    depends_on: [hivemq]
+    networks: [iot]
+
+  influxdb3:
+    image: influxdb:3-core
+    container_name: iot-influxdb3
+    restart: unless-stopped
+    ports:
+      - "8086:8181"            # host 8086 -> container 8181 (native); in-stack: iot-influxdb3:8181
+    volumes:
+      - influxdb3-data:/var/lib/influxdb3
+    ulimits:
+      nofile: {soft: 65536, hard: 65536}
+    environment:
+      - TZ=${TZ:-UTC}
+    command: ["influxdb3", "serve", "--node-id", "node1", "--object-store", "file",
+              "--data-dir", "/var/lib/influxdb3/data",
+              "--admin-token-file", "/var/lib/influxdb3/admin-token.json"]
+    networks: [iot]
+
+  influxdb3-ui:
+    image: influxdata/influxdb3-ui:latest
+    container_name: iot-influxdb3-ui
+    restart: unless-stopped
+    depends_on: [influxdb3]
+    ports:
+      - "8888:80"
+    volumes:
+      - influxdb3-ui-db:/db    # required, or the UI loses its data
+    environment:
+      - TZ=${TZ:-UTC}
+      - SESSION_SECRET_KEY=${INFLUXDB3_UI_SESSION_SECRET}
+      - DEFAULT_INFLUX_SERVER=http://iot-influxdb3:8181
+      - DEFAULT_API_TOKEN=${INFLUXDB3_ADMIN_TOKEN}
+    networks: [iot]
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: iot-grafana
+    restart: unless-stopped
+    depends_on: [influxdb3]
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    environment:
+      - TZ=${TZ:-UTC}
+      - GF_SECURITY_ADMIN_USER=${GF_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_ADMIN_PASSWORD}
+    networks: [iot]
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: iot-prometheus
+    restart: unless-stopped
+    depends_on: [nodered]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=30d
+      - --web.listen-address=:9090
+    ports:
+      - "9091:9090"            # host 9091 (Method 3's "IoT Prometheus" Grafana datasource)
+    volumes:
+      - ./methods/03-grafana-live/stack-metrics/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./methods/03-grafana-live/stack-metrics/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    networks: [iot]
+
+networks:
+  iot:
+    driver: bridge
+
+volumes:
+  hivemq-data: {}
+  hivemq-log: {}
+  nodered-data: {}
+  influxdb3-data: {}
+  influxdb3-ui-db: {}
+  grafana-data: {}
+  prometheus-data: {}

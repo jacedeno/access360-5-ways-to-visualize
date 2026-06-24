@@ -164,9 +164,10 @@ the stack — nothing else, no private platform service in the path:
 | **Prometheus** (`iot-prometheus`, `:9091`) | The stack's own Prometheus; scrapes the Node-RED `/metrics` exporter for Method 3's System Health KPIs. |
 | **Grafana** (`iot-grafana`) | Dashboards (Method 3), reading InfluxDB history + iot-prometheus KPIs + live MQTT. |
 
-The methods **reuse the existing shared IoT-stack instances** on the homelab host
-rather than standing up new infrastructure — per-method helpers (the Method 4 flow,
-the Hologram flow) install *into* the existing `iot-nodered`.
+Install the whole stack from the top-level [`docker-compose.yml`](docker-compose.yml)
+(`cp .env.example .env` first, then `docker compose up -d`, or import it as a Portainer
+stack). Per-method helpers (the Method 4 flow, the ingestion + `/metrics` flow, the
+Hologram flow) then install *into* this stack's `iot-nodered`.
 
 > **Not part of this stack:** the **`spectra-ingester`** (and its own
 > `spectra-prometheus`) belong to a **separate project, `spectra-io`**, and must not
@@ -174,10 +175,11 @@ the Hologram flow) install *into* the existing `iot-nodered`.
 > ingested by a **Node-RED flow** in `iot-nodered` (writing to the `ctc43250372`
 > InfluxDB database), which is what Method 3 reads.
 
-> **Status:** the per-method assets are delivered. Packaging the shared services as a
-> single top-level `docker-compose.yml` (so a reader can stand the stack up from
-> scratch) is a **future deliverable** — today the methods reuse the instances
-> already running on the homelab host.
+> **Status:** the single top-level [`docker-compose.yml`](docker-compose.yml) bundles
+> all six services (HiveMQ, Node-RED, InfluxDB 3 + UI, Grafana, Prometheus) on one
+> network — deployable fresh anywhere. The author's homelab runs the same stack as one
+> Portainer stack (`iot`); the repo template uses named volumes, the homelab uses host
+> bind-mounts under `/opt/iot-stack/data` — equivalent.
 
 ## License
 
