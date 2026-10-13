@@ -1,4 +1,30 @@
-# 5 Ways to Visualize Your CTC Connect ACCESS360 Series
+<p align="center">
+  <img src="methods/04-node-red-fft-waterfall/docs-img/dashboard-waterfall.png" alt="Method 4, the Node-RED dashboard: the live FFT spectrum of an ACCESS360 sensor above its scrolling waterfall" width="100%">
+</p>
+
+<h1 align="center">5 Ways to Visualize Your CTC Connect ACCESS360 Series</h1>
+<p align="center"><em>Five direct-to-HiveMQ ways to visualize a CTC Connect ACCESS360 wireless vibration monitoring fleet,<br>all served by one easy-to-install IoT stack.</em></p>
+
+<p align="center">
+  <a href="#the-5-methods"><img src="https://img.shields.io/badge/methods-5-1f6feb?style=flat-square" alt="Methods: 5"></a>
+  <a href="#overview"><img src="https://img.shields.io/badge/status-Phase%202-2ea44f?style=flat-square" alt="Status: Phase 2"></a>
+  <a href="methods/03-grafana-live/"><img src="https://img.shields.io/badge/method%203-delivered%20%2B%20live-2ea44f?style=flat-square" alt="Method 3: delivered + live"></a>
+  <a href="methods/04-node-red-fft-waterfall/"><img src="https://img.shields.io/badge/method%204-delivered%20%2B%20live-2ea44f?style=flat-square" alt="Method 4: delivered + live"></a>
+  <a href="methods/05-sensecap-indicator-d1l/"><img src="https://img.shields.io/badge/method%205-firmware%20built-6e7781?style=flat-square" alt="Method 5: firmware built"></a>
+</p>
+<p align="center">
+  <img src="https://img.shields.io/badge/HiveMQ%20CE-MQTT%205.0-660066?style=flat-square&logo=mqtt&logoColor=white" alt="HiveMQ CE: MQTT 5.0">
+  <img src="https://img.shields.io/badge/Node--RED-flows%20%2B%20FFT-8f0000?style=flat-square&logo=nodered&logoColor=white" alt="Node-RED: flows + FFT">
+  <img src="https://img.shields.io/badge/InfluxDB-3%20Core-22adf6?style=flat-square&logo=influxdb&logoColor=white" alt="InfluxDB 3 Core">
+  <img src="https://img.shields.io/badge/Grafana-dashboards-f46800?style=flat-square&logo=grafana&logoColor=white" alt="Grafana">
+  <img src="https://img.shields.io/badge/Prometheus-KPIs-e6522c?style=flat-square&logo=prometheus&logoColor=white" alt="Prometheus">
+  <img src="https://img.shields.io/badge/ESP32--S3-SenseCAP%20D1L-e7352c?style=flat-square&logo=espressif&logoColor=white" alt="ESP32-S3: SenseCAP Indicator D1L">
+  <img src="https://img.shields.io/badge/Docker-Compose-2496ed?style=flat-square&logo=docker&logoColor=white" alt="Docker Compose">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/jacedeno/access360-5-ways-to-visualize?style=flat-square" alt="License"></a>
+  <img src="https://img.shields.io/github/last-commit/jacedeno/access360-5-ways-to-visualize?style=flat-square" alt="Last commit">
+</p>
+
+## Overview
 
 Five ways to **see** the live telemetry from a
 [CTC Connect ACCESS360](https://www.ctconline.com/) wireless vibration
@@ -35,25 +61,21 @@ all you want.
 
 ## The system in one diagram
 
-```
- BLE vibration sensors          4G LTE (Hologram SIM)
- WS100 / WS200 / WS300   ──BLE──►  ConnectBridge gateway  ──MQTT──►  ┌──────────────────────────────┐
- (ACCESS360 series)                (serial 43250372)                 │  THE IoT STACK (one install) │
-                                   topics: access360/<gw>/<channel>  │                              │
-                                                                     │   HiveMQ ◄── the protagonist │
-                                                                     │     │                        │
-                                                                     │     ├─► Node-RED ─► InfluxDB3 │
-                                                                     │     │   (ingest + FFT)  (hist)│
-                                                                     │     │                     │  │
-                                                                     │     │                  Grafana│
-                                                                     └─────┼─────────────────────┼──┘
-        ┌──────────────────┬──────────────┬────────────────────┬─────────┘                     │
-        ▼                  ▼              ▼                    ▼                                  ▼
-   1. MQTTX        2. IoT MQTT Panel  4. Node-RED FFT   5. SenseCAP Indicator D1L       3. Grafana Live
-   (desktop sniff)  (Android phone)   ⭐ waterfall      ⭐ on-device Health monitor      (web dashboard)
-   └── live MQTT ───┴──────────────────────────────────┴──── connect straight to HiveMQ ──┘   reads
-                                                                                          InfluxDB (history)
-                                                                                          + HiveMQ (live)
+```mermaid
+flowchart LR
+    S["BLE vibration sensors<br/>WS100 / WS200 / WS300<br/>(ACCESS360 series)"] -- "BLE" --> G["ConnectBridge gateway<br/>(serial 43250372)"]
+    G -- "MQTT over 4G LTE (Hologram SIM)<br/>topics: access360/#lt;gw#gt;/#lt;channel#gt;" --> H
+    subgraph STACK["THE IoT STACK (one install)"]
+        H["HiveMQ<br/>(the protagonist)"] --> N["Node-RED<br/>(ingest + FFT)"]
+        N --> I[("InfluxDB 3<br/>(history)")]
+        I --> GR["Grafana"]
+    end
+    H -- "live MQTT" --> M1["1. MQTTX<br/>(desktop sniff)"]
+    H -- "live MQTT" --> M2["2. IoT MQTT Panel<br/>(Android phone)"]
+    H -- "live MQTT" --> M4["4. Node-RED FFT ⭐<br/>(waterfall)"]
+    H -- "live MQTT" --> M5["5. SenseCAP Indicator D1L ⭐<br/>(on-device Health monitor)"]
+    GR --> M3["3. Grafana Live<br/>(web dashboard)<br/>reads InfluxDB (history) + HiveMQ (live)"]
+    H -. "live" .-> GR
 ```
 
 Methods 1, 2, 4 and 5 connect **straight to HiveMQ** (the broker-native value
@@ -113,7 +135,9 @@ documented once, here:
 
 ---
 
-## Quick start
+## Getting started
+
+### Quick start
 
 1. **Install the stack.** Deploy the one IoT stack (HiveMQ + Node-RED + InfluxDB 3
    + Grafana) — as a Portainer stack or with `docker compose up -d`. See
@@ -134,6 +158,9 @@ documented once, here:
 
 ## Repository layout
 
+<details>
+<summary><b>Tree</b></summary>
+
 ```
 .
 ├── README.md                       ← you are here
@@ -151,6 +178,8 @@ documented once, here:
     ├── 04-node-red-fft-waterfall/   ⭐
     └── 05-sensecap-indicator-d1l/   ⭐
 ```
+
+</details>
 
 ## The stack
 
@@ -185,3 +214,11 @@ Hologram flow) then install *into* this stack's `iot-nodered`.
 ## License
 
 [MIT](LICENSE) © 2026 Jose Cedeno
+
+---
+
+<p align="center">
+  Built by <b>Jose Cedeno</b> ·
+  <a href="https://geekendzone.com">geekendzone.com</a> ·
+  <a href="https://www.linkedin.com/in/joseangelcedeno/">LinkedIn</a>
+</p>
